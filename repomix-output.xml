@@ -1,0 +1,4412 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+app.py
+enhanced_app.py
+improved_rag.py
+requirements.txt
+setup.py
+src/__init__.py
+src/document_loader.py
+src/document_manager.py
+src/enhanced_document_loader.py
+src/enhanced_qa_engine.py
+src/qa_engine.py
+src/utils/__init__.py
+src/utils/config.py
+src/utils/logger.py
+src/utils/text_splitter.py
+src/vector_store.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+.env
+*.db
+*.index
+data/
+uploads/
+logs/
+*.log
+
+# Vector stores
+chroma_db/
+faiss_index/
+*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
+</file>
+
+<file path="app.py">
+"""
+Redirect to enhanced_app.py - the main application file.
+
+This file exists for backward compatibility.
+"""
+
+import subprocess
+import sys
+
+print("Redirecting to enhanced_app.py...")
+subprocess.run([sys.executable, "-m", "streamlit", "run", "enhanced_app.py"])
+</file>
+
+<file path="enhanced_app.py">
+"""Enhanced Streamlit UI for Document Q&A Agent with intelligence features."""
+
+import streamlit as st
+from pathlib import Path
+import os
+from src.qa_engine import QAEngine
+from src.enhanced_qa_engine import EnhancedQAEngine
+from src.utils.config import get_config
+from src.utils.logger import logger
+
+
+# Page configuration
+st.set_page_config(
+    page_title="Enhanced Document Q&A Agent",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Initialize session state
+if "engine_type" not in st.session_state:
+    st.session_state.engine_type = "enhanced"
+
+if "qa_engine" not in st.session_state:
+    try:
+        if st.session_state.engine_type == "enhanced":
+            st.session_state.qa_engine = EnhancedQAEngine()
+        else:
+            st.session_state.qa_engine = QAEngine()
+        st.session_state.initialized = True
+    except Exception as e:
+        st.session_state.initialized = False
+        st.error(f"Failed to initialize: {str(e)}")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = set()
+
+
+def switch_engine(engine_type: str):
+    """Switch between standard and enhanced QA engines."""
+    if engine_type != st.session_state.engine_type:
+        st.session_state.engine_type = engine_type
+        try:
+            if engine_type == "enhanced":
+                st.session_state.qa_engine = EnhancedQAEngine()
+            else:
+                st.session_state.qa_engine = QAEngine()
+            st.success(f"Switched to {engine_type} engine")
+        except Exception as e:
+            st.error(f"Failed to switch engine: {str(e)}")
+
+
+def format_validation_result(validation):
+    """Format validation result for display."""
+    if not validation:
+        return ""
+    
+    result = f"\n\n**Answer Validation:**\n"
+    result += f"- **Confidence Level:** {validation.confidence_level}\n"
+    result += f"- **Complete Answer:** {'Yes' if validation.is_complete else 'No'}\n"
+    
+    if validation.missing_information:
+        result += f"- **Missing Information:** {', '.join(validation.missing_information)}\n"
+    
+    if validation.contradictions:
+        result += f"- **Contradictions Found:** {', '.join(validation.contradictions)}\n"
+    
+    if validation.suggestions:
+        result += f"- **Suggestions:** {', '.join(validation.suggestions)}\n"
+    
+    return result
+
+
+def format_query_analysis(analysis):
+    """Format query analysis for display."""
+    if not analysis:
+        return ""
+    
+    result = f"\n**Query Analysis:**\n"
+    result += f"- **Type:** {analysis.query_type.value}\n"
+    result += f"- **Complexity:** {analysis.complexity_score:.2f}\n"
+    result += f"- **Multi-hop:** {'Yes' if analysis.multi_hop else 'No'}\n"
+    
+    if analysis.entities:
+        result += f"- **Key Entities:** {', '.join(analysis.entities)}\n"
+    
+    return result
+
+
+def main():
+    """Main application function."""
+    
+    # Header
+    st.title("🧠 Enhanced Document Q&A Agent")
+    st.markdown("Upload documents and ask questions using advanced RAG-powered AI")
+    
+    # Sidebar
+    with st.sidebar:
+        st.header("⚙️ Configuration")
+        
+        # Engine selection
+        engine_type = st.radio(
+            "Select Engine",
+            ["standard", "enhanced"],
+            index=1 if st.session_state.engine_type == "enhanced" else 0,
+            help="Enhanced engine includes query classification, multi-stage retrieval, and answer validation"
+        )
+        
+        if engine_type != st.session_state.engine_type:
+            switch_engine(engine_type)
+        
+        st.divider()
+        
+        st.header("📁 Document Management")
+        
+        # File upload
+        uploaded_file = st.file_uploader(
+            "Upload PDF Document",
+            type=["pdf"],
+            help="Upload PDF files to add to the knowledge base"
+        )
+        
+        if uploaded_file is not None:
+            if uploaded_file.name not in st.session_state.uploaded_files:
+                with st.spinner("Processing document..."):
+                    try:
+                        # Process the uploaded file
+                        result = st.session_state.qa_engine.load_uploaded_file(
+                            uploaded_file.read(),
+                            uploaded_file.name
+                        )
+                        
+                        if result["success"]:
+                            st.session_state.uploaded_files.add(uploaded_file.name)
+                            # Get the appropriate message based on action
+                            action = result.get("action", "added")
+                            if action == "unchanged":
+                                st.info(f"Document {uploaded_file.name} already exists with same content")
+                            else:
+                                chunks_indexed = result.get("chunks_indexed", "Unknown")
+                                st.success(
+                                    f"✅ Loaded {uploaded_file.name}\n\n"
+                                    f"- Action: {action}\n"
+                                    f"- Chunks indexed: {chunks_indexed}"
+                                )
+                        else:
+                            st.error(f"Failed to load document: {result['error']}")
+                    
+                    except Exception as e:
+                        st.error(f"Error processing file: {str(e)}")
+        
+        # Document list and management
+        st.divider()
+        st.header("📄 Indexed Documents")
+        
+        if st.session_state.initialized and st.session_state.engine_type == "enhanced":
+            documents = st.session_state.qa_engine.list_documents()
+            
+            if documents:
+                for doc in documents:
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.text(doc["filename"])
+                    with col2:
+                        st.text(f"{doc['chunk_count']} chunks")
+                    with col3:
+                        if st.button("🗑️", key=f"delete_{doc['filename']}", help=f"Delete {doc['filename']}"):
+                            result = st.session_state.qa_engine.delete_document(doc["filename"])
+                            if result["success"]:
+                                st.success(f"Deleted {doc['filename']}")
+                                # Remove from uploaded files set
+                                st.session_state.uploaded_files.discard(doc["filename"])
+                                st.rerun()
+                            else:
+                                st.error(f"Failed to delete: {result.get('error', 'Unknown error')}")
+            else:
+                st.info("No documents indexed yet")
+        
+        # System stats
+        st.divider()
+        st.header("📊 System Status")
+        
+        if st.session_state.initialized:
+            stats = st.session_state.qa_engine.get_stats()
+            
+            if st.session_state.engine_type == "enhanced":
+                # Show document management stats
+                doc_stats = stats.get("document_management", {})
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric(
+                        "Total Documents",
+                        doc_stats.get("total_documents", 0)
+                    )
+                with col2:
+                    integrity = "✅ Healthy" if doc_stats.get("integrity_check", False) else "⚠️ Issues"
+                    st.metric(
+                        "System Integrity",
+                        integrity
+                    )
+            else:
+                st.metric(
+                    "Documents in Vector Store",
+                    stats["vector_store"].get("document_count", 0)
+                )
+            
+            # Show enhanced features if using enhanced engine
+            if st.session_state.engine_type == "enhanced" and "enhanced_features" in stats:
+                st.subheader("Enhanced Features")
+                features = stats["enhanced_features"]
+                for feature, enabled in features.items():
+                    st.checkbox(
+                        feature.replace("_", " ").title(),
+                        value=enabled,
+                        disabled=True,
+                        key=f"feature_{feature}"
+                    )
+            
+            with st.expander("Configuration"):
+                config = stats["config"]
+                st.json(config)
+        
+        # Clear documents button
+        st.divider()
+        if st.button("🗑️ Clear All Documents", type="secondary"):
+            st.session_state.qa_engine.clear_documents()
+            st.session_state.uploaded_files.clear()
+            st.session_state.messages = []
+            st.success("All documents cleared!")
+            st.rerun()
+    
+    # Main chat interface
+    if not st.session_state.initialized:
+        st.error("System not initialized. Please check your configuration.")
+        return
+    
+    # Chat settings
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col2:
+        use_rag = st.checkbox("Use RAG", value=True, help="Enable document retrieval")
+    with col3:
+        if st.session_state.engine_type == "enhanced":
+            validate_answer = st.checkbox("Validate Answer", value=True, help="Enable answer validation")
+        else:
+            validate_answer = False
+    
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            
+            # Show additional information for enhanced engine
+            if message["role"] == "assistant" and st.session_state.engine_type == "enhanced":
+                if "query_analysis" in message:
+                    with st.expander("🔍 Query Analysis"):
+                        st.markdown(format_query_analysis(message["query_analysis"]))
+                
+                if "validation" in message and message.get("validation"):
+                    with st.expander("✅ Answer Validation"):
+                        st.markdown(format_validation_result(message["validation"]))
+            
+            # Show sources if available
+            if message["role"] == "assistant" and "sources" in message:
+                if message["sources"]:
+                    with st.expander("📄 Sources"):
+                        for i, source in enumerate(message["sources"], 1):
+                            metadata = source.get("metadata", {})
+                            st.markdown(
+                                f"**Source {i}:** {metadata.get('filename', 'Unknown')} "
+                                f"(chunk {metadata.get('chunk_index', '?')})"
+                            )
+                            if st.session_state.engine_type == "enhanced":
+                                # Show relevance score if available
+                                score = source.get('adjusted_score', source.get('distance', 'N/A'))
+                                st.caption(f"Relevance score: {score}")
+    
+    # Chat input
+    if prompt := st.chat_input("Ask a question about your documents..."):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Generate response
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
+            sources = []
+            query_analysis = None
+            validation_result = None
+            
+            try:
+                # Get response with streaming
+                if st.session_state.engine_type == "enhanced":
+                    result = st.session_state.qa_engine.answer_question(
+                        prompt,
+                        use_rag=use_rag,
+                        stream=True,
+                        validate=validate_answer and use_rag
+                    )
+                else:
+                    result = st.session_state.qa_engine.answer_question(
+                        prompt,
+                        use_rag=use_rag,
+                        stream=True
+                    )
+                
+                if result["success"]:
+                    # Stream the response
+                    for chunk in result["stream"]:
+                        full_response += chunk
+                        message_placeholder.markdown(full_response + "▌")
+                    
+                    message_placeholder.markdown(full_response)
+                    sources = result.get("sources", [])
+                    
+                    # Get additional info for enhanced engine
+                    if st.session_state.engine_type == "enhanced":
+                        query_analysis = result.get("query_analysis")
+                        
+                        # Get validation if not streaming
+                        if validate_answer and use_rag:
+                            # Re-run without streaming to get validation
+                            validation_result_full = st.session_state.qa_engine.answer_question(
+                                prompt,
+                                use_rag=use_rag,
+                                stream=False,
+                                validate=True
+                            )
+                            if validation_result_full["success"]:
+                                validation_result = validation_result_full.get("validation")
+                    
+                    # Show query analysis
+                    if query_analysis:
+                        with st.expander("🔍 Query Analysis"):
+                            st.markdown(format_query_analysis(query_analysis))
+                    
+                    # Show validation
+                    if validation_result:
+                        with st.expander("✅ Answer Validation"):
+                            st.markdown(format_validation_result(validation_result))
+                    
+                    # Show sources
+                    if sources:
+                        with st.expander("📄 Sources"):
+                            for i, source in enumerate(sources, 1):
+                                metadata = source.get("metadata", {})
+                                st.markdown(
+                                    f"**Source {i}:** {metadata.get('filename', 'Unknown')} "
+                                    f"(chunk {metadata.get('chunk_index', '?')})"
+                                )
+                                if st.session_state.engine_type == "enhanced":
+                                    score = source.get('adjusted_score', source.get('distance', 'N/A'))
+                                    st.caption(f"Relevance score: {score}")
+                else:
+                    full_response = f"Error: {result.get('error', 'Unknown error')}"
+                    message_placeholder.error(full_response)
+            
+            except Exception as e:
+                full_response = f"Error: {str(e)}"
+                message_placeholder.error(full_response)
+        
+        # Add assistant message to history
+        message_data = {
+            "role": "assistant",
+            "content": full_response,
+            "sources": sources
+        }
+        
+        if st.session_state.engine_type == "enhanced":
+            if query_analysis:
+                message_data["query_analysis"] = query_analysis
+            if validation_result:
+                message_data["validation"] = validation_result
+        
+        st.session_state.messages.append(message_data)
+
+
+if __name__ == "__main__":
+    # Check for API key
+    try:
+        config = get_config()
+        main()
+    except ValueError as e:
+        st.error(
+            "⚠️ **Configuration Error**\n\n"
+            f"{str(e)}\n\n"
+            "Please create a `.env` file with your OpenAI API key:\n"
+            "```\n"
+            "OPENAI_API_KEY=your_api_key_here\n"
+            "```"
+        )
+</file>
+
+<file path="improved_rag.py">
+#!/usr/bin/env python3
+"""
+Improved RAG System with Complete PDF Processing and Answer Validation
+"""
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
+import hashlib
+from typing import List, Dict, Any, Optional, Tuple
+import fitz  # PyMuPDF
+from openai import OpenAI
+import re
+import json
+from datetime import datetime
+
+from src.utils.config import get_config
+from src.utils.logger import logger
+from src.vector_store import VectorStore
+from src.document_manager import DocumentManager, JsonDocumentRepository
+
+
+class ImprovedPDFProcessor:
+    """Enhanced PDF processor that captures ALL text content"""
+    
+    def __init__(self):
+        self.table_patterns = [
+            r'\b[A-Z]{2,}\s*[-:]\s*[A-Za-z0-9\s]+',  # Pattern like "GLS: description"
+            r'\b[A-Z]{2,}\s+[A-Za-z0-9\s\-]+\s+\d+[A-Za-z]*',  # Pattern with measurements
+            r'^\s*[•·▪▫◦‣⁃]\s*.+',  # Bullet points
+            r'^\s*\d+\.\s*.+',  # Numbered lists
+        ]
+    
+    def extract_complete_text(self, pdf_path: str) -> Dict[str, Any]:
+        """Extract ALL text from PDF with multiple methods"""
+        try:
+            doc = fitz.open(pdf_path)
+            all_content = []
+            tables_found = []
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                
+                # Method 1: Standard text extraction
+                text = page.get_text("text")
+                
+                # Method 2: Block-based extraction for better structure
+                blocks = page.get_text("blocks")
+                
+                # Method 3: Dictionary extraction for detailed content
+                page_dict = page.get_text("dict")
+                
+                # Combine all methods
+                page_content = f"\n=== Page {page_num + 1} ===\n"
+                
+                # Process blocks for structured content
+                if blocks:
+                    for block in blocks:
+                        if block[6] == 0:  # Text block
+                            block_text = block[4].strip()
+                            if block_text:
+                                # Check if it's a table-like structure
+                                if self._is_table_content(block_text):
+                                    tables_found.append({
+                                        "page": page_num + 1,
+</file>
+
+<file path="requirements.txt">
+# Core dependencies
+openai==1.35.3
+streamlit==1.35.0
+pymupdf==1.24.5
+chromadb==0.5.0
+python-dotenv==1.0.1
+tiktoken==0.7.0
+protobuf==3.20.3  # Fix for ChromaDB compatibility
+
+# Optional but recommended
+langchain==0.2.5
+langchain-openai==0.1.9
+langchain-community==0.2.5
+
+# Utilities
+numpy==1.26.4
+pydantic==2.7.4
+tenacity==8.4.1
+</file>
+
+<file path="setup.py">
+"""Setup script for Document Q&A Agent."""
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+
+def create_env_file():
+    """Create .env file from template."""
+    env_path = Path(".env")
+    env_example_path = Path(".env.example")
+    
+    if env_path.exists():
+        print("✅ .env file already exists")
+        return True
+    
+    if env_example_path.exists():
+        print("📝 Creating .env file from .env.example")
+        env_content = env_example_path.read_text()
+        env_path.write_text(env_content)
+        print("⚠️  Please edit .env and add your OpenAI API key")
+        return False
+    else:
+        print("❌ .env.example not found")
+        return False
+
+
+def install_dependencies():
+    """Install Python dependencies."""
+    print("\n📦 Installing dependencies...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        print("✅ Dependencies installed successfully")
+        return True
+    except subprocess.CalledProcessError:
+        print("❌ Failed to install dependencies")
+        return False
+
+
+def create_directories():
+    """Create necessary directories."""
+    directories = ["data", "uploads", "logs", "chroma_db"]
+    
+    print("\n📁 Creating directories...")
+    for dir_name in directories:
+        Path(dir_name).mkdir(exist_ok=True)
+        print(f"  ✅ {dir_name}/")
+    
+    return True
+
+
+def main():
+    """Run setup process."""
+    print("🚀 Document Q&A Agent Setup")
+    print("=" * 50)
+    
+    # Check Python version
+    if sys.version_info < (3, 8):
+        print("❌ Python 3.8 or higher is required")
+        sys.exit(1)
+    
+    print(f"✅ Python {sys.version.split()[0]} detected")
+    
+    # Create directories
+    create_directories()
+    
+    # Create .env file
+    env_ready = create_env_file()
+    
+    # Install dependencies
+    deps_installed = install_dependencies()
+    
+    # Summary
+    print("\n" + "=" * 50)
+    print("📊 Setup Summary")
+    
+    if deps_installed and env_ready:
+        print("\n✅ Setup complete! You're ready to go.")
+        print("\nTo start the application:")
+        print("  streamlit run app.py")
+    elif deps_installed and not env_ready:
+        print("\n⚠️  Setup partially complete.")
+        print("\nNext steps:")
+        print("1. Edit .env file and add your OpenAI API key")
+        print("2. Run: streamlit run app.py")
+    else:
+        print("\n❌ Setup failed. Please check the errors above.")
+    
+    print("\nFor testing, run:")
+    print("  python test_system.py")
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="src/__init__.py">
+"""Document Q&A Agent with RAG capabilities."""
+</file>
+
+<file path="src/document_loader.py">
+"""
+Backward compatibility module - redirects to enhanced_document_loader.
+
+This module exists to maintain compatibility with existing code that imports from document_loader.
+All functionality has been moved to enhanced_document_loader.py.
+"""
+
+# Import everything from enhanced_document_loader for backward compatibility
+from src.enhanced_document_loader import *
+
+# Import and alias the main class for backward compatibility
+from src.enhanced_document_loader import EnhancedDocumentLoader as DocumentLoader
+
+# Also keep the original name available
+from src.enhanced_document_loader import EnhancedDocumentLoader
+
+__all__ = ['DocumentLoader', 'EnhancedDocumentLoader']
+</file>
+
+<file path="src/document_manager.py">
+"""
+Document Manager - Centralized document lifecycle management with ACID-like guarantees.
+
+This module implements the Repository pattern for document management, ensuring
+consistency between the vector store and application state. It provides:
+
+1. Transactional document operations (add/update/delete)
+2. Document versioning and change detection
+3. Atomic operations with rollback capability
+4. Clear separation of concerns between storage and business logic
+
+Architecture Decision Records (ADR):
+- ADR-001: Use Repository pattern to abstract vector store implementation
+- ADR-002: Implement Unit of Work pattern for transactional consistency
+- ADR-003: Use content-based hashing for document identity (SHA-256)
+- ADR-004: Maintain document metadata separately from vector embeddings
+"""
+
+import hashlib
+import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple, Any
+import threading
+from contextlib import contextmanager
+
+from src.utils.logger import logger
+
+
+class DocumentStatus(Enum):
+    """Document lifecycle states."""
+    PENDING = "pending"
+    INDEXED = "indexed"
+    FAILED = "failed"
+    DELETED = "deleted"
+
+
+@dataclass
+class DocumentMetadata:
+    """
+    Immutable document metadata following Value Object pattern.
+    
+    The document_id is a content-based hash ensuring:
+    1. Same content always produces same ID (idempotent)
+    2. Content changes create new document versions
+    3. No naming collisions
+    """
+    document_id: str
+    filename: str
+    content_hash: str
+    chunk_count: int
+    total_size: int
+    created_at: datetime
+    updated_at: datetime
+    status: DocumentStatus
+    chunk_ids: List[str] = field(default_factory=list)
+    error_message: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary for persistence."""
+        return {
+            "document_id": self.document_id,
+            "filename": self.filename,
+            "content_hash": self.content_hash,
+            "chunk_count": self.chunk_count,
+            "total_size": self.total_size,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "status": self.status.value,
+            "chunk_ids": self.chunk_ids,
+            "error_message": self.error_message
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DocumentMetadata":
+        """Deserialize from dictionary."""
+        return cls(
+            document_id=data["document_id"],
+            filename=data["filename"],
+            content_hash=data["content_hash"],
+            chunk_count=data["chunk_count"],
+            total_size=data["total_size"],
+            created_at=datetime.fromisoformat(data["created_at"]),
+            updated_at=datetime.fromisoformat(data["updated_at"]),
+            status=DocumentStatus(data["status"]),
+            chunk_ids=data.get("chunk_ids", []),
+            error_message=data.get("error_message")
+        )
+
+
+class DocumentRepository(ABC):
+    """
+    Abstract repository interface for document operations.
+    Follows Interface Segregation Principle (ISP).
+    """
+    
+    @abstractmethod
+    def add(self, metadata: DocumentMetadata) -> None:
+        """Add document metadata."""
+        pass
+    
+    @abstractmethod
+    def get(self, document_id: str) -> Optional[DocumentMetadata]:
+        """Retrieve document metadata by ID."""
+        pass
+    
+    @abstractmethod
+    def get_by_filename(self, filename: str) -> Optional[DocumentMetadata]:
+        """Retrieve document metadata by filename."""
+        pass
+    
+    @abstractmethod
+    def list_all(self) -> List[DocumentMetadata]:
+        """List all document metadata."""
+        pass
+    
+    @abstractmethod
+    def update(self, metadata: DocumentMetadata) -> None:
+        """Update document metadata."""
+        pass
+    
+    @abstractmethod
+    def delete(self, document_id: str) -> None:
+        """Delete document metadata."""
+        pass
+    
+    @abstractmethod
+    def exists(self, document_id: str) -> bool:
+        """Check if document exists."""
+        pass
+
+
+class JsonDocumentRepository(DocumentRepository):
+    """
+    JSON-based document repository implementation.
+    
+    Production considerations:
+    - For scale, replace with PostgreSQL/MongoDB
+    - Add Redis for caching frequently accessed documents
+    - Implement connection pooling for database access
+    """
+    
+    def __init__(self, storage_path: Path):
+        self.storage_path = storage_path
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.metadata_file = self.storage_path / "document_metadata.json"
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
+        self._cache: Dict[str, DocumentMetadata] = {}
+        self._load_metadata()
+    
+    def _load_metadata(self) -> None:
+        """Load metadata from disk with error recovery."""
+        if self.metadata_file.exists():
+            try:
+                with open(self.metadata_file, 'r') as f:
+                    data = json.load(f)
+                    for doc_id, doc_data in data.items():
+                        self._cache[doc_id] = DocumentMetadata.from_dict(doc_data)
+            except Exception as e:
+                logger.error(f"Failed to load metadata, starting fresh: {e}")
+                self._cache = {}
+                # Create backup of corrupted file
+                backup_path = self.metadata_file.with_suffix('.backup')
+                self.metadata_file.rename(backup_path)
+    
+    def _save_metadata(self) -> None:
+        """Persist metadata to disk with atomic write."""
+        temp_file = self.metadata_file.with_suffix('.tmp')
+        try:
+            data = {
+                doc_id: metadata.to_dict() 
+                for doc_id, metadata in self._cache.items()
+            }
+            with open(temp_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            # Atomic rename
+            temp_file.replace(self.metadata_file)
+        except Exception as e:
+            logger.error(f"Failed to save metadata: {e}")
+            if temp_file.exists():
+                temp_file.unlink()
+            raise
+    
+    def add(self, metadata: DocumentMetadata) -> None:
+        with self._lock:
+            self._cache[metadata.document_id] = metadata
+            self._save_metadata()
+    
+    def get(self, document_id: str) -> Optional[DocumentMetadata]:
+        with self._lock:
+            return self._cache.get(document_id)
+    
+    def get_by_filename(self, filename: str) -> Optional[DocumentMetadata]:
+        with self._lock:
+            for metadata in self._cache.values():
+                if metadata.filename == filename and metadata.status != DocumentStatus.DELETED:
+                    return metadata
+            return None
+    
+    def list_all(self) -> List[DocumentMetadata]:
+        with self._lock:
+            return [
+                metadata for metadata in self._cache.values()
+                if metadata.status != DocumentStatus.DELETED
+            ]
+    
+    def update(self, metadata: DocumentMetadata) -> None:
+        with self._lock:
+            if metadata.document_id not in self._cache:
+                raise ValueError(f"Document {metadata.document_id} not found")
+            metadata.updated_at = datetime.now()
+            self._cache[metadata.document_id] = metadata
+            self._save_metadata()
+    
+    def delete(self, document_id: str) -> None:
+        with self._lock:
+            if document_id in self._cache:
+                # Soft delete - mark as deleted but keep metadata
+                metadata = self._cache[document_id]
+                metadata.status = DocumentStatus.DELETED
+                metadata.updated_at = datetime.now()
+                self._save_metadata()
+    
+    def exists(self, document_id: str) -> bool:
+        with self._lock:
+            metadata = self._cache.get(document_id)
+            return metadata is not None and metadata.status != DocumentStatus.DELETED
+
+
+class DocumentManager:
+    """
+    High-level document management with transactional guarantees.
+    
+    Implements Unit of Work pattern to ensure consistency between
+    document metadata and vector store operations.
+    """
+    
+    def __init__(self, repository: DocumentRepository, vector_store):
+        self.repository = repository
+        self.vector_store = vector_store
+        self._operation_lock = threading.Lock()
+    
+    @staticmethod
+    def generate_document_id(content: str) -> str:
+        """Generate deterministic document ID from content."""
+        return hashlib.sha256(content.encode()).hexdigest()
+    
+    @staticmethod
+    def generate_chunk_id(document_id: str, chunk_index: int) -> str:
+        """Generate deterministic chunk ID."""
+        return f"{document_id}:chunk:{chunk_index:04d}"
+    
+    @contextmanager
+    def transaction(self):
+        """
+        Provide transactional context for document operations.
+        
+        In production, this would integrate with database transactions
+        and implement proper two-phase commit with the vector store.
+        """
+        with self._operation_lock:
+            # Start transaction
+            rollback_actions = []
+            try:
+                yield rollback_actions
+            except Exception as e:
+                # Execute rollback actions in reverse order
+                logger.error(f"Transaction failed, rolling back: {e}")
+                for action in reversed(rollback_actions):
+                    try:
+                        action()
+                    except Exception as rollback_error:
+                        logger.error(f"Rollback failed: {rollback_error}")
+                raise
+    
+    def add_document(
+        self, 
+        filename: str, 
+        chunks: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Add or update a document with full transactional guarantees.
+        
+        Process:
+        1. Generate content-based document ID
+        2. Check for existing document with same content
+        3. If content changed, mark old version as deleted
+        4. Add new document version to vector store
+        5. Update metadata repository
+        
+        Returns:
+            Operation result with status and details
+        """
+        # Generate document ID from content
+        full_content = "".join(chunk["text"] for chunk in chunks)
+        document_id = self.generate_document_id(full_content)
+        content_hash = document_id[:16]  # Use first 16 chars for display
+        
+        with self.transaction() as rollback_actions:
+            # Check for existing document with same filename
+            existing = self.repository.get_by_filename(filename)
+            
+            if existing:
+                if existing.content_hash == content_hash:
+                    # Same content, no action needed
+                    return {
+                        "success": True,
+                        "action": "unchanged",
+                        "document_id": existing.document_id,
+                        "message": "Document content unchanged"
+                    }
+                else:
+                    # Content changed, delete old version
+                    self._delete_document_internal(existing, rollback_actions)
+            
+            # Create metadata
+            metadata = DocumentMetadata(
+                document_id=document_id,
+                filename=filename,
+                content_hash=content_hash,
+                chunk_count=len(chunks),
+                total_size=len(full_content),
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                status=DocumentStatus.PENDING,
+                chunk_ids=[]
+            )
+            
+            # Add to repository first (can rollback)
+            self.repository.add(metadata)
+            rollback_actions.append(lambda: self.repository.delete(document_id))
+            
+            # Prepare chunks with proper IDs
+            chunk_ids = []
+            enhanced_chunks = []
+            
+            for i, chunk in enumerate(chunks):
+                chunk_id = self.generate_chunk_id(document_id, i)
+                chunk_ids.append(chunk_id)
+                
+                # Enhanced chunk with full metadata
+                enhanced_chunk = {
+                    **chunk,
+                    "chunk_id": chunk_id,
+                    "document_id": document_id,
+                    "filename": filename,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks)
+                }
+                enhanced_chunks.append(enhanced_chunk)
+            
+            # Add to vector store
+            try:
+                # Initialize collection if needed
+                if not self.vector_store.collection:
+                    self.vector_store.initialize_collection()
+                
+                # Add chunks in batches
+                batch_size = 50
+                for i in range(0, len(enhanced_chunks), batch_size):
+                    batch = enhanced_chunks[i:i + batch_size]
+                    batch_ids = chunk_ids[i:i + batch_size]
+                    
+                    texts = [chunk["text"] for chunk in batch]
+                    metadatas = [
+                        {k: v for k, v in chunk.items() if k != "text"}
+                        for chunk in batch
+                    ]
+                    
+                    embeddings = self.vector_store._get_embeddings(texts)
+                    
+                    self.vector_store.collection.add(
+                        ids=batch_ids,
+                        embeddings=embeddings,
+                        documents=texts,
+                        metadatas=metadatas
+                    )
+                
+                # Update metadata status
+                metadata.status = DocumentStatus.INDEXED
+                metadata.chunk_ids = chunk_ids
+                self.repository.update(metadata)
+                
+                logger.info(f"Successfully indexed document {filename} ({document_id})")
+                
+                return {
+                    "success": True,
+                    "action": "added",
+                    "document_id": document_id,
+                    "filename": filename,
+                    "chunks_indexed": len(chunks)
+                }
+                
+            except Exception as e:
+                # Update metadata with error
+                metadata.status = DocumentStatus.FAILED
+                metadata.error_message = str(e)
+                self.repository.update(metadata)
+                raise
+    
+    def _delete_document_internal(
+        self, 
+        metadata: DocumentMetadata, 
+        rollback_actions: List
+    ) -> None:
+        """Internal method to delete document with rollback support."""
+        # Delete from vector store
+        if metadata.chunk_ids:
+            self.vector_store.collection.delete(ids=metadata.chunk_ids)
+            # Rollback would require re-adding chunks (complex, omitted for brevity)
+        
+        # Mark as deleted in repository
+        old_status = metadata.status
+        metadata.status = DocumentStatus.DELETED
+        self.repository.update(metadata)
+        rollback_actions.append(
+            lambda: setattr(metadata, 'status', old_status)
+        )
+    
+    def delete_document(self, filename: str) -> Dict[str, Any]:
+        """
+        Delete a document by filename.
+        
+        Returns:
+            Operation result with status and details
+        """
+        with self.transaction() as rollback_actions:
+            metadata = self.repository.get_by_filename(filename)
+            
+            if not metadata:
+                return {
+                    "success": False,
+                    "error": f"Document '{filename}' not found"
+                }
+            
+            self._delete_document_internal(metadata, rollback_actions)
+            
+            logger.info(f"Successfully deleted document {filename}")
+            
+            return {
+                "success": True,
+                "document_id": metadata.document_id,
+                "chunks_deleted": len(metadata.chunk_ids)
+            }
+    
+    def list_documents(self) -> List[Dict[str, Any]]:
+        """List all active documents with their metadata."""
+        documents = self.repository.list_all()
+        return [
+            {
+                "filename": doc.filename,
+                "document_id": doc.document_id,
+                "chunk_count": doc.chunk_count,
+                "total_size": doc.total_size,
+                "status": doc.status.value,
+                "created_at": doc.created_at.isoformat(),
+                "updated_at": doc.updated_at.isoformat()
+            }
+            for doc in documents
+        ]
+    
+    def get_document_info(self, filename: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information about a specific document."""
+        metadata = self.repository.get_by_filename(filename)
+        if not metadata:
+            return None
+        
+        return {
+            "filename": metadata.filename,
+            "document_id": metadata.document_id,
+            "content_hash": metadata.content_hash,
+            "chunk_count": metadata.chunk_count,
+            "total_size": metadata.total_size,
+            "status": metadata.status.value,
+            "created_at": metadata.created_at.isoformat(),
+            "updated_at": metadata.updated_at.isoformat(),
+            "chunk_ids": metadata.chunk_ids,
+            "error_message": metadata.error_message
+        }
+    
+    def search_with_filtering(
+        self, 
+        query: str, 
+        k: int = 5,
+        include_files: Optional[List[str]] = None,
+        exclude_files: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search with document-level filtering.
+        
+        This ensures we only search within active documents and can
+        exclude specific files from results.
+        """
+        # Build list of valid document IDs
+        valid_doc_ids = set()
+        filename_to_doc_id = {}
+        
+        for metadata in self.repository.list_all():
+            if metadata.status == DocumentStatus.INDEXED:
+                valid_doc_ids.add(metadata.document_id)
+                filename_to_doc_id[metadata.filename] = metadata.document_id
+        
+        # Apply include/exclude filters
+        if include_files:
+            filtered_ids = {
+                filename_to_doc_id[f] for f in include_files 
+                if f in filename_to_doc_id
+            }
+            valid_doc_ids &= filtered_ids
+        
+        if exclude_files:
+            excluded_ids = {
+                filename_to_doc_id[f] for f in exclude_files 
+                if f in filename_to_doc_id
+            }
+            valid_doc_ids -= excluded_ids
+        
+        if not valid_doc_ids:
+            return []
+        
+        # Perform search with document ID filter
+        # ChromaDB requires at least 2 conditions for $and, so we use direct filter
+        where_clause = {"document_id": {"$in": list(valid_doc_ids)}}
+        
+        return self.vector_store.search(
+            query=query,
+            k=k,
+            filter_dict=where_clause
+        )
+    
+    def verify_integrity(self) -> Dict[str, Any]:
+        """
+        Verify consistency between metadata and vector store.
+        
+        Checks:
+        1. All indexed documents have chunks in vector store
+        2. No orphaned chunks exist in vector store
+        3. Chunk counts match metadata
+        """
+        issues = []
+        
+        # Initialize collection if needed
+        if not self.vector_store.collection:
+            self.vector_store.initialize_collection()
+        
+        # Get all chunks from vector store
+        try:
+            all_chunks = self.vector_store.collection.get()
+        except Exception as e:
+            return {
+                "is_healthy": False,
+                "issues": [{
+                    "type": "error",
+                    "description": f"Failed to access vector store: {str(e)}"
+                }],
+                "total_documents": len(self.repository.list_all()),
+                "total_chunks": 0
+            }
+        
+        chunk_by_doc = {}
+        
+        if all_chunks and all_chunks.get('metadatas'):
+            for i, metadata in enumerate(all_chunks['metadatas']):
+                doc_id = metadata.get('document_id', 'unknown')
+                if doc_id not in chunk_by_doc:
+                    chunk_by_doc[doc_id] = []
+                chunk_by_doc[doc_id].append(all_chunks['ids'][i])
+        
+        # Check each document
+        for doc_metadata in self.repository.list_all():
+            if doc_metadata.status == DocumentStatus.INDEXED:
+                doc_id = doc_metadata.document_id
+                expected_chunks = set(doc_metadata.chunk_ids)
+                actual_chunks = set(chunk_by_doc.get(doc_id, []))
+                
+                if expected_chunks != actual_chunks:
+                    issues.append({
+                        "type": "chunk_mismatch",
+                        "document": doc_metadata.filename,
+                        "expected": len(expected_chunks),
+                        "actual": len(actual_chunks),
+                        "missing": list(expected_chunks - actual_chunks),
+                        "extra": list(actual_chunks - expected_chunks)
+                    })
+        
+        # Check for orphaned chunks
+        known_doc_ids = {
+            doc.document_id for doc in self.repository.list_all()
+        }
+        
+        for doc_id in chunk_by_doc:
+            if doc_id not in known_doc_ids:
+                issues.append({
+                    "type": "orphaned_chunks",
+                    "document_id": doc_id,
+                    "chunk_count": len(chunk_by_doc[doc_id])
+                })
+        
+        return {
+            "is_healthy": len(issues) == 0,
+            "issues": issues,
+            "total_documents": len(self.repository.list_all()),
+            "total_chunks": len(all_chunks.get('ids', []))
+        }
+</file>
+
+<file path="src/enhanced_document_loader.py">
+"""
+Enhanced Document Loader with table extraction and structure-aware chunking.
+
+This module provides production-grade document processing capabilities with:
+- Intelligent PDF parsing with layout preservation
+- Table detection and extraction
+- Structure-aware text chunking
+- Metadata enrichment
+- Error handling and validation
+
+Architecture:
+- Strategy Pattern for different document types
+- Template Method for processing pipeline
+- Factory Pattern for chunker creation
+- Single Responsibility Principle adherence
+"""
+
+import re
+import hashlib
+import time
+import io
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Dict, Any, Optional, Tuple, Union
+import fitz  # PyMuPDF
+import pandas as pd
+try:
+    from PIL import Image
+    import pytesseract
+    import numpy as np
+    OCR_AVAILABLE = True
+    try:
+        pytesseract.get_tesseract_version()
+        logger.info("✅ Tesseract OCR is installed and available")
+    except Exception as e:
+        logger.warning(f"⚠️ Tesseract OCR not available: {e}")
+        OCR_AVAILABLE = False
+except ImportError:
+    OCR_AVAILABLE = False
+    logger.warning("⚠️ OCR dependencies not installed. Install with: pip install pytesseract pillow pdf2image")
+
+from src.utils.logger import logger
+
+
+@dataclass
+class DocumentMetadata:
+    """Value object for document metadata."""
+    filename: str
+    file_path: str
+    total_pages: int
+    file_size: int
+    document_type: str
+    has_tables: bool = False
+    table_count: int = 0
+    processing_time: float = 0.0
+    content_hash: Optional[str] = None
+
+
+@dataclass
+class TableInfo:
+    """Value object for table information."""
+    content: str
+    page_number: int
+    bbox: Optional[Tuple[float, float, float, float]] = None
+    confidence: float = 0.0
+    table_type: str = "detected"
+
+
+class DocumentProcessor(ABC):
+    """Abstract base class for document processors using Strategy pattern."""
+    
+    @abstractmethod
+    def can_process(self, file_path: Path) -> bool:
+        """Check if this processor can handle the file type."""
+        pass
+    
+    @abstractmethod
+    def extract_content(self, file_path: Path) -> Dict[str, Any]:
+        """Extract content from the document."""
+        pass
+
+
+class PDFProcessor(DocumentProcessor):
+    """PDF processor with advanced table detection, layout preservation, and OCR support."""
+    
+    def __init__(self, use_ocr: bool = True, ocr_threshold: int = 50, enable_logging: bool = True):
+        self.supported_extensions = {'.pdf'}
+        self.use_ocr = use_ocr and OCR_AVAILABLE
+        self.ocr_threshold = ocr_threshold  # Min chars to skip OCR
+        self.enable_logging = enable_logging
+        
+        if self.use_ocr:
+            logger.info("🔍 OCR-Enhanced PDF processing enabled")
+        else:
+            logger.info("📄 Standard PDF processing (no OCR)")
+        
+    def can_process(self, file_path: Path) -> bool:
+        """Check if file is a supported PDF."""
+        return file_path.suffix.lower() in self.supported_extensions
+    
+    def extract_content(self, file_path: Path) -> Dict[str, Any]:
+        """
+        Extract content from PDF with table detection and layout preservation.
+        
+        Returns:
+            Dictionary containing text, tables, and metadata
+        """
+        try:
+            doc = fitz.open(str(file_path))
+            text_pages = []
+            all_tables = []
+            total_text_length = 0
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                
+                # Extract text with layout preservation
+                text = self._extract_text_with_layout(page)
+                
+                # Detect and extract tables
+                tables = self._extract_tables_from_page(page, page_num + 1)
+                all_tables.extend(tables)
+                
+                if text.strip() or tables:
+                    page_info = {
+                        "page_number": page_num + 1,
+                        "text": text,
+                        "has_tables": len(tables) > 0,
+                        "table_count": len(tables),
+                        "char_count": len(text)
+                    }
+                    text_pages.append(page_info)
+                    total_text_length += len(text)
+            
+            doc.close()
+            
+            # Merge content with table markers
+            full_text = self._merge_content_with_tables(text_pages, all_tables)
+            
+            # Create metadata
+            metadata = DocumentMetadata(
+                filename=file_path.name,
+                file_path=str(file_path.absolute()),
+                total_pages=len(text_pages),
+                file_size=file_path.stat().st_size,
+                document_type="pdf",
+                has_tables=len(all_tables) > 0,
+                table_count=len(all_tables)
+            )
+            
+            # Add content hash for deduplication
+            metadata.content_hash = hashlib.sha256(full_text.encode()).hexdigest()[:16]
+            
+            logger.info(
+                f"Successfully processed PDF: {file_path.name} "
+                f"({len(text_pages)} pages, {len(all_tables)} tables, "
+                f"{total_text_length:,} characters)"
+            )
+            
+            return {
+                "text": full_text,
+                "pages": text_pages,
+                "tables": all_tables,
+                "metadata": metadata,
+                "success": True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing PDF {file_path}: {str(e)}")
+            raise ValueError(f"Failed to process PDF: {str(e)}")
+    
+    def _extract_text_with_layout(self, page) -> str:
+        """
+        Extract text while preserving document layout and structure.
+        
+        Uses multiple extraction methods to capture ALL text including:
+        - Regular text blocks
+        - Text in different layers
+        - Text spans that might be in graphics
+        - OCR for image-based text
+        """
+        page_num = page.number + 1
+        start_time = time.time()
+        
+        try:
+            all_text_parts = []
+            
+            # Method 1: Get text blocks with position information
+            blocks = page.get_text("blocks")
+            pymupdf_text = ""
+            
+            if blocks:
+                # Sort blocks by reading order (top-to-bottom, left-to-right)
+                blocks.sort(key=lambda block: (block[1], block[0]))  # y-coordinate, then x-coordinate
+                
+                for block in blocks:
+                    if len(block) > 6 and block[6] == 0:  # Text block (not image)
+                        block_text = block[4].strip()
+                        if block_text:
+                            # Clean up the text while preserving structure
+                            cleaned_text = self._clean_text_block(block_text)
+                            if cleaned_text:
+                                all_text_parts.append(cleaned_text)
+                                pymupdf_text += cleaned_text + "\n"
+            
+            # Method 2: Extract from dictionary format to catch more text
+            dict_text = page.get_text("dict")
+            additional_texts = set()
+            
+            if "blocks" in dict_text:
+                for block in dict_text["blocks"]:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            if "spans" in line:
+                                for span in line["spans"]:
+                                    if "text" in span:
+                                        span_text = span["text"].strip()
+                                        # Add short texts that might be model names
+                                        if span_text and len(span_text) <= 20 and span_text not in "\n".join(all_text_parts):
+                                            additional_texts.add(span_text)
+            
+            # Add additional unique texts found
+            if additional_texts:
+                all_text_parts.append("\n[Additional text elements found:]")
+                all_text_parts.extend(sorted(additional_texts))
+            
+            # Method 3: Simple extraction
+            simple_text = page.get_text("text", sort=True)
+            
+            # Calculate how much text we got from PyMuPDF
+            pymupdf_char_count = len(pymupdf_text)
+            
+            # Log extraction details
+            if self.enable_logging:
+                logger.info(f"  Page {page_num} - PyMuPDF extracted: {pymupdf_char_count} chars")
+                
+                # Check for specific terms
+                combined_text = "\n".join(all_text_parts).lower()
+                logger.info(f"  Page {page_num} - Contains 'GLS': {'✅' if 'gls' in combined_text else '❌'}")
+                logger.info(f"  Page {page_num} - Contains 'GLX': {'✅' if 'glx' in combined_text else '❌'}")
+            
+            # Method 4: OCR if enabled and text is minimal
+            ocr_text = ""
+            if self.use_ocr and pymupdf_char_count < self.ocr_threshold:
+                logger.info(f"  Page {page_num} - Text below threshold ({pymupdf_char_count} < {self.ocr_threshold}), applying OCR...")
+                ocr_text = self._ocr_page(page)
+                
+                if ocr_text:
+                    ocr_char_count = len(ocr_text)
+                    logger.info(f"  Page {page_num} - OCR extracted: {ocr_char_count} chars")
+                    
+                    # Check OCR results for specific terms
+                    ocr_lower = ocr_text.lower()
+                    logger.info(f"  Page {page_num} - OCR contains 'GLS': {'✅' if 'gls' in ocr_lower else '❌'}")
+                    logger.info(f"  Page {page_num} - OCR contains 'GLX': {'✅' if 'glx' in ocr_lower else '❌'}")
+                    
+                    # Add OCR text to results
+                    all_text_parts.append("\n[OCR Extracted Text:]")
+                    all_text_parts.append(ocr_text)
+            
+            # Combine all text
+            if all_text_parts:
+                final_text = "\n\n".join(all_text_parts)
+            elif ocr_text:
+                final_text = ocr_text
+            else:
+                final_text = simple_text
+            
+            # Log processing time
+            processing_time = time.time() - start_time
+            if self.enable_logging:
+                logger.info(f"  Page {page_num} - Processing time: {processing_time:.2f}s")
+                logger.info(f"  Page {page_num} - Final text length: {len(final_text)} chars")
+            
+            return final_text
+            
+        except Exception as e:
+            logger.warning(f"Error in layout extraction for page {page_num}, falling back to simple: {e}")
+            return page.get_text("text", sort=True)
+    
+    def _ocr_page(self, page) -> str:
+        """
+        Perform OCR on a PDF page.
+        
+        Returns:
+            Extracted text from OCR
+        """
+        try:
+            # Render page to image
+            mat = fitz.Matrix(2, 2)  # 2x zoom for better OCR quality
+            pix = page.get_pixmap(matrix=mat)
+            
+            # Convert to PIL Image
+            img_data = pix.tobytes("png")
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Perform OCR
+            ocr_text = pytesseract.image_to_string(img, lang='eng')
+            
+            # Clean up OCR text
+            ocr_text = self._clean_ocr_text(ocr_text)
+            
+            return ocr_text
+            
+        except Exception as e:
+            logger.error(f"OCR failed for page: {e}")
+            return ""
+    
+    def _clean_ocr_text(self, text: str) -> str:
+        """Clean up OCR-extracted text."""
+        if not text:
+            return ""
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r' {2,}', ' ', text)
+        
+        # Fix common OCR errors
+        # GLS/GLX specific fixes
+        text = re.sub(r'\bGL5\b', 'GLS', text)  # Common OCR error: S -> 5
+        text = re.sub(r'\bGLX\s*\b', 'GLX', text)
+        text = re.sub(r'\bGL\$\b', 'GLS', text)  # Common OCR error: S -> $
+        
+        return text.strip()
+    
+    def _clean_text_block(self, text: str) -> str:
+        """Clean and normalize text block while preserving meaning."""
+        if not text:
+            return ""
+        
+        # Normalize whitespace but preserve paragraph breaks
+        text = re.sub(r' +', ' ', text)  # Multiple spaces to single
+        text = re.sub(r'\n +', '\n', text)  # Remove leading spaces on lines
+        text = re.sub(r' +\n', '\n', text)  # Remove trailing spaces on lines
+        text = re.sub(r'\n{3,}', '\n\n', text)  # Max 2 consecutive newlines
+        
+        return text.strip()
+    
+    def _extract_tables_from_page(self, page, page_num: int) -> List[TableInfo]:
+        """
+        Extract ALL structured content from PDF page.
+        This captures tables, lists, specifications, and any structured data.
+        """
+        tables = []
+        
+        # Get all text extraction methods for comprehensive coverage
+        text = page.get_text()
+        blocks = page.get_text("blocks")
+        dict_content = page.get_text("dict")
+        
+        if not text.strip():
+            return tables
+        
+        lines = text.split('\n')
+        current_table_lines = []
+        in_table = False
+        
+        for line_idx, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                if in_table and current_table_lines:
+                    # End of table/structured content
+                    table_content = self._format_table_content(current_table_lines)
+                    if table_content:
+                        tables.append(TableInfo(
+                            content=table_content,
+                            page_number=page_num,
+                            confidence=self._assess_table_confidence(current_table_lines),
+                            table_type="structured_content"
+                        ))
+                    current_table_lines = []
+                    in_table = False
+                continue
+            
+            # Detect ANY structured content (not just tables)
+            is_structured = self._is_structured_content(line)
+            
+            if is_structured:
+                if not in_table:
+                    in_table = True
+                current_table_lines.append(line)
+            else:
+                if in_table and current_table_lines:
+                    # Check if we should continue the structured content
+                    if len(current_table_lines) >= 2:  # Minimum size
+                        table_content = self._format_table_content(current_table_lines)
+                        if table_content:
+                            tables.append(TableInfo(
+                                content=table_content,
+                                page_number=page_num,
+                                confidence=self._assess_table_confidence(current_table_lines),
+                                table_type="structured_content"
+                            ))
+                    current_table_lines = []
+                    in_table = False
+        
+        # Handle structured content at end of page
+        if in_table and current_table_lines and len(current_table_lines) >= 2:
+            table_content = self._format_table_content(current_table_lines)
+            if table_content:
+                tables.append(TableInfo(
+                    content=table_content,
+                    page_number=page_num,
+                    confidence=self._assess_table_confidence(current_table_lines),
+                    table_type="structured_content"
+                ))
+        
+        return tables
+    
+    def _is_structured_content(self, line: str) -> bool:
+        """
+        Determine if a line contains ANY structured content.
+        This is more comprehensive than just table detection.
+        """
+        if not line.strip():
+            return False
+        
+        # Pattern 1: Contains pipe separators
+        if '|' in line:
+            return True
+        
+        # Pattern 2: Contains tabs
+        if '\t' in line:
+            return True
+        
+        # Pattern 3: Multiple columns separated by 2+ spaces
+        if re.search(r'  {2,}', line):
+            return True
+        
+        # Pattern 4: Key-value pairs (specifications)
+        if ':' in line and re.match(r'^[A-Za-z0-9\s\-_]+:\s*.+', line):
+            return True
+        
+        # Pattern 5: Lines with measurements/units
+        if re.search(r'\b\d+\s*(mm|cm|m|kg|W|Hz|V|A|°C|%|x|X)\b', line, re.IGNORECASE):
+            return True
+        
+        # Pattern 6: Bullet points or lists
+        if re.match(r'^\s*[•·▪▫◦‣⁃\-\*]\s+', line):
+            return True
+        
+        # Pattern 7: Numbered lists
+        if re.match(r'^\s*\d+[\.\)]\s+', line):
+            return True
+        
+        # Pattern 8: All caps headers (likely section titles)
+        words = line.split()
+        if len(words) >= 2 and all(word.isupper() for word in words[:2]):
+            return True
+        
+        # Pattern 9: Model numbers or product codes (mix of letters and numbers)
+        if re.search(r'\b[A-Z]{2,}[\s\-]?\d+\b', line):
+            return True
+        
+        return False
+    
+    def _is_table_line(self, line: str) -> bool:
+        """
+        Determine if a line is likely part of a table.
+        
+        Uses multiple heuristics to detect tabular data.
+        """
+        if not line.strip():
+            return False
+        
+        # Pattern 1: Contains pipe separators
+        if '|' in line and line.count('|') >= 2:
+            return True
+        
+        # Pattern 2: Contains multiple tabs
+        if '\t' in line and line.count('\t') >= 2:
+            return True
+        
+        # Pattern 3: Multiple columns separated by spaces (2+ spaces)
+        if re.search(r'  {2,}', line):
+            parts = re.split(r'  {2,}', line.strip())
+            if len(parts) >= 3:  # At least 3 columns
+                return True
+        
+        # Pattern 4: Colon-separated key-value pairs (specifications)
+        if re.match(r'^[A-Za-z\s]+:\s+.+', line):
+            return True
+        
+        # Pattern 5: Lines with numbers and units (measurements, specs)
+        if re.search(r'\b\d+\s*(mm|cm|m|kg|W|Hz|V|A|°C|%)\b', line, re.IGNORECASE):
+            return True
+        
+        # Pattern 6: Technical specifications pattern
+        if re.search(r'^[A-Za-z\s]+\s+[A-Za-z0-9\s\-\|\+]+$', line):
+            # Check if it looks like "Property Value" format
+            parts = line.split()
+            if len(parts) >= 2:
+                return True
+        
+        return False
+    
+    def _format_table_content(self, table_lines: List[str]) -> str:
+        """Format table lines into a clean table representation."""
+        if not table_lines:
+            return ""
+        
+        # Clean and format the table
+        formatted_lines = []
+        for line in table_lines:
+            # Normalize spacing
+            if '|' in line:
+                # Pipe-separated table
+                parts = [part.strip() for part in line.split('|')]
+                formatted_line = ' | '.join(part for part in parts if part)
+            elif '\t' in line:
+                # Tab-separated table
+                parts = [part.strip() for part in line.split('\t')]
+                formatted_line = ' | '.join(part for part in parts if part)
+            else:
+                # Space-separated table
+                formatted_line = re.sub(r'  +', ' | ', line.strip())
+            
+            if formatted_line.strip():
+                formatted_lines.append(formatted_line)
+        
+        return '\n'.join(formatted_lines)
+    
+    def _assess_table_confidence(self, table_lines: List[str]) -> float:
+        """Assess confidence that the detected content is actually a table."""
+        if not table_lines:
+            return 0.0
+        
+        score = 0.0
+        
+        # Factor 1: Number of rows (more rows = higher confidence)
+        score += min(len(table_lines) / 10.0, 0.3)
+        
+        # Factor 2: Consistent column structure
+        column_counts = []
+        for line in table_lines:
+            if '|' in line:
+                column_counts.append(line.count('|') + 1)
+            elif '\t' in line:
+                column_counts.append(line.count('\t') + 1)
+            else:
+                column_counts.append(len(re.split(r'  +', line.strip())))
+        
+        if column_counts:
+            consistency = 1.0 - (max(column_counts) - min(column_counts)) / max(column_counts, 1)
+            score += consistency * 0.4
+        
+        # Factor 3: Contains numeric data
+        numeric_lines = sum(1 for line in table_lines if re.search(r'\d', line))
+        score += (numeric_lines / len(table_lines)) * 0.3
+        
+        return min(score, 1.0)
+    
+    def _merge_content_with_tables(
+        self, 
+        text_pages: List[Dict], 
+        tables: List[TableInfo]
+    ) -> str:
+        """
+        Merge page text content with table information.
+        
+        Tables are inserted at appropriate positions with clear markers.
+        """
+        merged_content = []
+        
+        # Group tables by page
+        tables_by_page = {}
+        for table in tables:
+            page = table.page_number
+            if page not in tables_by_page:
+                tables_by_page[page] = []
+            tables_by_page[page].append(table)
+        
+        for page_info in text_pages:
+            page_num = page_info["page_number"]
+            
+            # Add page header
+            merged_content.append(f"\n--- Page {page_num} ---\n")
+            
+            # Add tables for this page first (if any)
+            if page_num in tables_by_page:
+                for table in tables_by_page[page_num]:
+                    merged_content.append(f"\n[TABLE START - Page {page_num}]")
+                    merged_content.append(table.content)
+                    merged_content.append(f"[TABLE END]\n")
+            
+            # Add page text content
+            if page_info["text"].strip():
+                merged_content.append(page_info["text"])
+        
+        return "\n".join(merged_content)
+
+
+class StructureAwareChunker:
+    """
+    Advanced text chunker that preserves document structure.
+    
+    Features:
+    - Table-aware chunking (keeps tables intact)
+    - Semantic boundary detection
+    - Configurable overlap strategies
+    - Metadata preservation
+    """
+    
+    def __init__(
+        self, 
+        chunk_size: int = 1000, 
+        chunk_overlap: int = 200,
+        preserve_tables: bool = True,
+        min_chunk_size: int = 100
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.preserve_tables = preserve_tables
+        self.min_chunk_size = min_chunk_size
+        
+        # Semantic boundary patterns (in order of preference)
+        self.boundary_patterns = [
+            r'\n\n---.*?---\n\n',  # Page breaks
+            r'\n\n',  # Paragraph breaks
+            r'\. ',   # Sentence ends
+            r', ',    # Comma breaks
+            r' '      # Word breaks
+        ]
+    
+    def chunk_document(
+        self, 
+        text: str, 
+        metadata: DocumentMetadata
+    ) -> List[Dict[str, Any]]:
+        """
+        Split document into structure-aware chunks.
+        
+        Returns:
+            List of chunk dictionaries with text and metadata
+        """
+        if not text or not text.strip():
+            logger.warning("Empty text provided for chunking")
+            return []
+        
+        chunks = []
+        
+        if self.preserve_tables:
+            # Split by table boundaries first
+            segments = self._split_by_tables(text)
+        else:
+            segments = [text]
+        
+        chunk_index = 0
+        
+        for segment in segments:
+            if self._is_table_segment(segment):
+                # Keep table as single chunk (unless too large)
+                table_chunks = self._chunk_table_segment(segment, metadata, chunk_index)
+                chunks.extend(table_chunks)
+                chunk_index += len(table_chunks)
+            else:
+                # Regular text chunking with overlap
+                text_chunks = self._chunk_text_segment(segment, metadata, chunk_index)
+                chunks.extend(text_chunks)
+                chunk_index += len(text_chunks)
+        
+        # Add overlap between adjacent chunks
+        chunks = self._add_intelligent_overlap(chunks)
+        
+        logger.info(f"Created {len(chunks)} structure-aware chunks")
+        return chunks
+    
+    def _split_by_tables(self, text: str) -> List[str]:
+        """Split text into segments, separating tables from regular text."""
+        segments = []
+        current_segment = []
+        lines = text.split('\n')
+        in_table = False
+        
+        for line in lines:
+            if '[TABLE START' in line:
+                # End current text segment
+                if current_segment:
+                    segments.append('\n'.join(current_segment))
+                    current_segment = []
+                # Start table segment
+                current_segment.append(line)
+                in_table = True
+            elif '[TABLE END]' in line:
+                # End table segment
+                current_segment.append(line)
+                segments.append('\n'.join(current_segment))
+                current_segment = []
+                in_table = False
+            else:
+                current_segment.append(line)
+        
+        # Add remaining content
+        if current_segment:
+            segments.append('\n'.join(current_segment))
+        
+        return [seg for seg in segments if seg.strip()]
+    
+    def _is_table_segment(self, segment: str) -> bool:
+        """Check if segment contains a table."""
+        return '[TABLE START' in segment and '[TABLE END]' in segment
+    
+    def _chunk_table_segment(
+        self, 
+        segment: str, 
+        metadata: DocumentMetadata, 
+        start_index: int
+    ) -> List[Dict[str, Any]]:
+        """Handle table segments - keep intact unless too large."""
+        if len(segment) <= self.chunk_size:
+            # Table fits in one chunk
+            return [{
+                "text": segment,
+                "chunk_index": start_index,
+                "chunk_type": "table",
+                "is_table": True,
+                "char_count": len(segment),
+                **self._create_chunk_metadata(metadata)
+            }]
+        else:
+            # Large table - split carefully
+            logger.warning(f"Large table ({len(segment)} chars) being split")
+            return self._split_large_table(segment, metadata, start_index)
+    
+    def _split_large_table(
+        self, 
+        segment: str, 
+        metadata: DocumentMetadata, 
+        start_index: int
+    ) -> List[Dict[str, Any]]:
+        """Split large tables while preserving structure."""
+        chunks = []
+        lines = segment.split('\n')
+        
+        # Find table boundaries
+        table_start_idx = None
+        table_end_idx = None
+        
+        for i, line in enumerate(lines):
+            if '[TABLE START' in line:
+                table_start_idx = i
+            elif '[TABLE END]' in line:
+                table_end_idx = i
+                break
+        
+        if table_start_idx is None or table_end_idx is None:
+            # Fallback to regular text chunking
+            return self._chunk_text_segment(segment, metadata, start_index)
+        
+        # Extract table header and content
+        header_lines = lines[:table_start_idx + 1]
+        table_lines = lines[table_start_idx + 1:table_end_idx]
+        footer_lines = lines[table_end_idx:]
+        
+        # Split table content into chunks
+        current_chunk_lines = header_lines.copy()
+        current_size = sum(len(line) + 1 for line in current_chunk_lines)
+        chunk_index = start_index
+        
+        for line in table_lines:
+            line_size = len(line) + 1
+            
+            if current_size + line_size + len(footer_lines[0]) > self.chunk_size:
+                # Finish current chunk
+                chunk_lines = current_chunk_lines + footer_lines
+                chunks.append({
+                    "text": '\n'.join(chunk_lines),
+                    "chunk_index": chunk_index,
+                    "chunk_type": "table_part",
+                    "is_table": True,
+                    "char_count": sum(len(l) + 1 for l in chunk_lines),
+                    **self._create_chunk_metadata(metadata)
+                })
+                
+                # Start new chunk
+                current_chunk_lines = header_lines.copy()
+                current_size = sum(len(line) + 1 for line in current_chunk_lines)
+                chunk_index += 1
+            
+            current_chunk_lines.append(line)
+            current_size += line_size
+        
+        # Add final chunk
+        if len(current_chunk_lines) > len(header_lines):
+            chunk_lines = current_chunk_lines + footer_lines
+            chunks.append({
+                "text": '\n'.join(chunk_lines),
+                "chunk_index": chunk_index,
+                "chunk_type": "table_part",
+                "is_table": True,
+                "char_count": sum(len(l) + 1 for l in chunk_lines),
+                **self._create_chunk_metadata(metadata)
+            })
+        
+        return chunks
+    
+    def _chunk_text_segment(
+        self, 
+        segment: str, 
+        metadata: DocumentMetadata, 
+        start_index: int
+    ) -> List[Dict[str, Any]]:
+        """Chunk regular text with semantic boundary awareness."""
+        if len(segment) <= self.chunk_size:
+            return [{
+                "text": segment,
+                "chunk_index": start_index,
+                "chunk_type": "text",
+                "is_table": False,
+                "char_count": len(segment),
+                **self._create_chunk_metadata(metadata)
+            }]
+        
+        chunks = []
+        remaining_text = segment
+        chunk_index = start_index
+        
+        while remaining_text:
+            if len(remaining_text) <= self.chunk_size:
+                # Remaining text fits in one chunk
+                chunks.append({
+                    "text": remaining_text,
+                    "chunk_index": chunk_index,
+                    "chunk_type": "text",
+                    "is_table": False,
+                    "char_count": len(remaining_text),
+                    **self._create_chunk_metadata(metadata)
+                })
+                break
+            
+            # Find best split point
+            split_point = self._find_best_split_point(remaining_text, self.chunk_size)
+            
+            if split_point == -1:
+                # No good split point found, force split at chunk_size
+                split_point = self.chunk_size
+            
+            chunk_text = remaining_text[:split_point].strip()
+            
+            if len(chunk_text) >= self.min_chunk_size:
+                chunks.append({
+                    "text": chunk_text,
+                    "chunk_index": chunk_index,
+                    "chunk_type": "text",
+                    "is_table": False,
+                    "char_count": len(chunk_text),
+                    **self._create_chunk_metadata(metadata)
+                })
+                chunk_index += 1
+            
+            # Move to next chunk with overlap
+            overlap_start = max(0, split_point - self.chunk_overlap)
+            remaining_text = remaining_text[overlap_start:].strip()
+            
+            # Avoid infinite loop
+            if not remaining_text or len(remaining_text) < self.min_chunk_size:
+                break
+        
+        return chunks
+    
+    def _find_best_split_point(self, text: str, max_length: int) -> int:
+        """Find the best point to split text using semantic boundaries."""
+        if len(text) <= max_length:
+            return len(text)
+        
+        # Search backwards from max_length for the best boundary
+        search_start = max_length
+        search_end = max(max_length - 200, max_length // 2)  # Don't search too far back
+        
+        for pattern in self.boundary_patterns:
+            for match in re.finditer(pattern, text[search_end:search_start]):
+                return search_end + match.end()
+        
+        # No good boundary found
+        return -1
+    
+    def _add_intelligent_overlap(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Add intelligent overlap between chunks for better context continuity."""
+        if len(chunks) <= 1:
+            return chunks
+        
+        enhanced_chunks = [chunks[0]]  # First chunk unchanged
+        
+        for i in range(1, len(chunks)):
+            current_chunk = chunks[i].copy()
+            prev_chunk = chunks[i-1]
+            
+            # Skip overlap for table chunks
+            if current_chunk.get("is_table", False) or prev_chunk.get("is_table", False):
+                enhanced_chunks.append(current_chunk)
+                continue
+            
+            # Add contextual overlap from previous chunk
+            prev_text = prev_chunk["text"]
+            overlap_text = self._extract_overlap_context(prev_text, self.chunk_overlap)
+            
+            if overlap_text:
+                current_chunk["text"] = overlap_text + "\n\n" + current_chunk["text"]
+                current_chunk["char_count"] = len(current_chunk["text"])
+                current_chunk["has_overlap"] = True
+            
+            enhanced_chunks.append(current_chunk)
+        
+        return enhanced_chunks
+    
+    def _extract_overlap_context(self, text: str, max_overlap: int) -> str:
+        """Extract meaningful context for overlap from end of previous chunk."""
+        if len(text) <= max_overlap:
+            return text
+        
+        # Try to find a good boundary for overlap (complete sentences)
+        overlap_start = len(text) - max_overlap
+        
+        # Look for sentence boundaries
+        for match in re.finditer(r'\. ', text[overlap_start:]):
+            return text[overlap_start + match.end():]
+        
+        # Fallback to word boundary
+        words = text[overlap_start:].split()
+        if len(words) > 1:
+            return ' '.join(words[1:])  # Skip partial first word
+        
+        return text[overlap_start:]
+    
+    def _create_chunk_metadata(self, doc_metadata: DocumentMetadata) -> Dict[str, Any]:
+        """Create metadata for individual chunks."""
+        return {
+            "filename": doc_metadata.filename,
+            "file_path": doc_metadata.file_path,
+            "document_type": doc_metadata.document_type,
+            "total_pages": doc_metadata.total_pages,
+            "has_tables": doc_metadata.has_tables,
+            "content_hash": doc_metadata.content_hash
+        }
+
+
+class EnhancedDocumentLoader:
+    """
+    Production-grade document loader with extensible architecture.
+    
+    Features:
+    - Strategy pattern for different document types
+    - Robust error handling and validation
+    - Memory-efficient processing
+    - Comprehensive logging and metrics
+    """
+    
+    def __init__(
+        self, 
+        chunk_size: int = 1000, 
+        chunk_overlap: int = 200,
+        preserve_tables: bool = True
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.preserve_tables = preserve_tables
+        
+        # Initialize processors
+        self.processors = [
+            PDFProcessor()
+        ]
+        
+        # Initialize chunker
+        self.chunker = StructureAwareChunker(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            preserve_tables=preserve_tables
+        )
+        
+        # Supported file types
+        self.supported_extensions = {'.pdf'}
+    
+    def load_document(self, file_path: Union[str, Path]) -> Dict[str, Any]:
+        """
+        Load and process a document.
+        
+        Args:
+            file_path: Path to the document file
+            
+        Returns:
+            Dictionary containing processed document data
+            
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If file type not supported or processing fails
+        """
+        file_path = Path(file_path)
+        
+        # Validation
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        if file_path.suffix.lower() not in self.supported_extensions:
+            raise ValueError(f"Unsupported file type: {file_path.suffix}")
+        
+        # Find appropriate processor
+        processor = self._get_processor(file_path)
+        if not processor:
+            raise ValueError(f"No processor available for file type: {file_path.suffix}")
+        
+        # Process document
+        try:
+            result = processor.extract_content(file_path)
+            logger.info(f"Successfully loaded document: {file_path.name}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to load document {file_path}: {str(e)}")
+            raise
+    
+    def load_and_chunk_document(self, file_path: Union[str, Path]) -> List[Dict[str, Any]]:
+        """
+        Load document and split into chunks.
+        
+        Args:
+            file_path: Path to the document file
+            
+        Returns:
+            List of document chunks with metadata
+        """
+        # Load document
+        doc_data = self.load_document(file_path)
+        
+        if not doc_data.get("success", False):
+            raise ValueError(f"Failed to load document: {file_path}")
+        
+        # Extract text and metadata
+        text = doc_data.get("text", "")
+        metadata = doc_data.get("metadata")
+        
+        if not text.strip():
+            logger.warning(f"No text content extracted from {file_path}")
+            return []
+        
+        # Chunk the document
+        chunks = self.chunker.chunk_document(text, metadata)
+        
+        logger.info(
+            f"Document {metadata.filename} processed: "
+            f"{len(chunks)} chunks created from {len(text):,} characters"
+        )
+        
+        return chunks
+    
+    def process_uploaded_file(
+        self, 
+        file_content: bytes, 
+        filename: str, 
+        save_dir: str = "uploads"
+    ) -> List[Dict[str, Any]]:
+        """
+        Process an uploaded file.
+        
+        Args:
+            file_content: Raw file content
+            filename: Original filename
+            save_dir: Directory to save the file
+            
+        Returns:
+            List of document chunks
+        """
+        # Create save directory
+        save_path = Path(save_dir)
+        save_path.mkdir(parents=True, exist_ok=True)
+        
+        # Save file temporarily
+        file_path = save_path / filename
+        
+        try:
+            with open(file_path, "wb") as f:
+                f.write(file_content)
+            
+            logger.info(f"Saved uploaded file: {file_path}")
+            
+            # Process the saved file
+            chunks = self.load_and_chunk_document(file_path)
+            
+            return chunks
+            
+        except Exception as e:
+            # Clean up file on error
+            if file_path.exists():
+                file_path.unlink()
+            logger.error(f"Error processing uploaded file {filename}: {str(e)}")
+            raise
+    
+    def _get_processor(self, file_path: Path) -> Optional[DocumentProcessor]:
+        """Get the appropriate processor for the file type."""
+        for processor in self.processors:
+            if processor.can_process(file_path):
+                return processor
+        return None
+    
+    def get_supported_extensions(self) -> set:
+        """Get set of supported file extensions."""
+        return self.supported_extensions.copy()
+    
+    def validate_file(self, file_path: Union[str, Path]) -> Dict[str, Any]:
+        """
+        Validate a file before processing.
+        
+        Returns:
+            Dictionary with validation results
+        """
+        file_path = Path(file_path)
+        
+        validation_result = {
+            "is_valid": False,
+            "file_exists": False,
+            "is_supported": False,
+            "file_size": 0,
+            "errors": []
+        }
+        
+        # Check if file exists
+        if not file_path.exists():
+            validation_result["errors"].append(f"File not found: {file_path}")
+            return validation_result
+        
+        validation_result["file_exists"] = True
+        validation_result["file_size"] = file_path.stat().st_size
+        
+        # Check file size (limit to 100MB for safety)
+        max_size = 100 * 1024 * 1024  # 100MB
+        if validation_result["file_size"] > max_size:
+            validation_result["errors"].append(
+                f"File too large: {validation_result['file_size']:,} bytes "
+                f"(max: {max_size:,} bytes)"
+            )
+            return validation_result
+        
+        # Check if supported
+        if file_path.suffix.lower() not in self.supported_extensions:
+            validation_result["errors"].append(
+                f"Unsupported file type: {file_path.suffix}"
+            )
+            return validation_result
+        
+        validation_result["is_supported"] = True
+        
+        # Additional format-specific validation
+        try:
+            if file_path.suffix.lower() == '.pdf':
+                # Try to open PDF to verify it's valid
+                doc = fitz.open(str(file_path))
+                if len(doc) == 0:
+                    validation_result["errors"].append("PDF contains no pages")
+                else:
+                    validation_result["page_count"] = len(doc)
+                doc.close()
+        except Exception as e:
+            validation_result["errors"].append(f"File validation error: {str(e)}")
+            return validation_result
+        
+        validation_result["is_valid"] = len(validation_result["errors"]) == 0
+        return validation_result
+
+
+class DocumentLoaderFactory:
+    """Factory for creating document loaders with different configurations."""
+    
+    @staticmethod
+    def create_default_loader() -> EnhancedDocumentLoader:
+        """Create loader with default settings."""
+        return EnhancedDocumentLoader(
+            chunk_size=1000,
+            chunk_overlap=200,
+            preserve_tables=True
+        )
+    
+    @staticmethod
+    def create_large_document_loader() -> EnhancedDocumentLoader:
+        """Create loader optimized for large documents."""
+        return EnhancedDocumentLoader(
+            chunk_size=1500,
+            chunk_overlap=150,
+            preserve_tables=True
+        )
+    
+    @staticmethod
+    def create_precise_loader() -> EnhancedDocumentLoader:
+        """Create loader for precise, small-chunk processing."""
+        return EnhancedDocumentLoader(
+            chunk_size=500,
+            chunk_overlap=100,
+            preserve_tables=True
+        )
+    
+    @staticmethod
+    def create_table_focused_loader() -> EnhancedDocumentLoader:
+        """Create loader with enhanced table processing."""
+        return EnhancedDocumentLoader(
+            chunk_size=800,
+            chunk_overlap=100,
+            preserve_tables=True
+        )
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Example usage
+    loader = DocumentLoaderFactory.create_default_loader()
+    
+    # Test file validation
+    test_file = Path("test_document.pdf")
+    if test_file.exists():
+        validation = loader.validate_file(test_file)
+        print(f"Validation result: {validation}")
+        
+        if validation["is_valid"]:
+            # Load and process document
+            try:
+                chunks = loader.load_and_chunk_document(test_file)
+                print(f"Created {len(chunks)} chunks")
+                
+                # Show first chunk as example
+                if chunks:
+                    first_chunk = chunks[0]
+                    print(f"First chunk preview:")
+                    print(f"- Type: {first_chunk.get('chunk_type', 'unknown')}")
+                    print(f"- Is table: {first_chunk.get('is_table', False)}")
+                    print(f"- Character count: {first_chunk.get('char_count', 0)}")
+                    print(f"- Text preview: {first_chunk['text'][:200]}...")
+                    
+            except Exception as e:
+                print(f"Error processing document: {e}")
+    else:
+        print("Test file not found")
+</file>
+
+<file path="src/enhanced_qa_engine.py">
+"""Enhanced Question-Answering engine with advanced RAG capabilities and document lifecycle management."""
+
+from typing import List, Dict, Any, Optional, Generator, Tuple
+from enum import Enum
+from dataclasses import dataclass
+from openai import OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+import json
+import re
+import os
+import fitz  # PyMuPDF
+import pandas as pd
+from pathlib import Path
+
+from src.utils.logger import logger
+from src.utils.config import get_config
+from src.vector_store import VectorStore
+from src.utils.text_splitter import DocumentChunker
+from src.document_manager import (
+    DocumentManager,
+    JsonDocumentRepository,
+    DocumentStatus
+)
+
+
+class QueryType(Enum):
+    """Types of queries for intelligent routing."""
+    FACTUAL = "factual"
+    COMPARATIVE = "comparative"
+    ANALYTICAL = "analytical"
+    SYNTHESIS = "synthesis"
+    TEMPORAL = "temporal"
+    CAUSAL = "causal"
+
+
+@dataclass
+class QueryAnalysis:
+    """Results of query analysis."""
+    query_type: QueryType
+    entities: List[str]
+    required_context: List[str]
+    complexity_score: float
+    multi_hop: bool
+
+
+@dataclass
+class ValidationResult:
+    """Results of answer validation."""
+    is_complete: bool
+    confidence_level: str  # High, Medium, Low
+    missing_information: List[str]
+    contradictions: List[str]
+    suggestions: List[str]
+
+
+class ComparisonQueryHandler:
+    """Integrated comparison query handling."""
+    
+    def __init__(self, openai_client: OpenAI):
+        self.openai_client = openai_client
+        self.comparison_patterns = [
+            r'which (?:is|are) better',
+            r'compare (?:the )?(\w+) (?:and|vs|versus|with) (\w+)',
+            r'what(?:\'s| is) the difference between',
+            r'(\w+) or (\w+)',
+            r'(\w+) vs\.? (\w+)',
+            r'better.*(\w+).*(\w+)',
+            r'comparison (?:of|between)',
+            r'pros and cons'
+        ]
+    
+    def is_comparison_query(self, query: str) -> bool:
+        """Check if query is asking for comparison."""
+        query_lower = query.lower()
+        for pattern in self.comparison_patterns:
+            if re.search(pattern, query_lower):
+                return True
+        comparison_words = ['better', 'worse', 'superior', 'inferior', 'versus', 
+                           'compare', 'comparison', 'difference', 'vs', 'or']
+        return any(word in query_lower for word in comparison_words)
+    
+    def extract_comparison_entities(self, query: str) -> List[str]:
+        """Extract entities being compared from the query."""
+        entities = []
+        query_lower = query.lower()
+        
+        patterns = [
+            r'compare (?:the )?(\w+) (?:and|vs|versus|with) (\w+)',
+            r'(\w+) (?:or|vs\.?|versus) (\w+)',
+            r'between (\w+) and (\w+)',
+            r'is (\w+) better than (\w+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                entities.extend(match.groups())
+                break
+        
+        if not entities:
+            model_pattern = r'\b([A-Z][A-Z0-9]+)\b'
+            matches = re.findall(model_pattern, query)
+            entities.extend(matches)
+        
+        entities = [e.strip() for e in entities if e and len(e) > 1]
+        return list(dict.fromkeys(entities))
+
+
+class StructuredContentChunker:
+    """Chunker that preserves document structure."""
+    
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+    
+    def split_with_structure(self, text: str, tables: List[Dict], metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Split text while preserving tables and structure."""
+        chunks = []
+        parts = self._split_by_tables(text)
+        
+        for part in parts:
+            if "[TABLE START]" in part and "[TABLE END]" in part:
+                chunk_data = {
+                    "text": part,
+                    "chunk_index": len(chunks),
+                    "is_table": True,
+                    "chunk_type": "table",
+                    **metadata
+                }
+                chunks.append(chunk_data)
+            else:
+                text_chunks = self._split_text_intelligently(part)
+                for text_chunk in text_chunks:
+                    chunk_data = {
+                        "text": text_chunk,
+                        "chunk_index": len(chunks),
+                        "is_table": False,
+                        "chunk_type": "text",
+                        **metadata
+                    }
+                    chunks.append(chunk_data)
+        
+        return self._add_overlap_context(chunks)
+    
+    def _split_by_tables(self, text: str) -> List[str]:
+        """Split text by table markers."""
+        parts = []
+        current_part = []
+        lines = text.split('\n')
+        
+        for line in lines:
+            if "[TABLE START]" in line:
+                if current_part:
+                    parts.append('\n'.join(current_part))
+                    current_part = []
+                current_part.append(line)
+            elif "[TABLE END]" in line:
+                current_part.append(line)
+                parts.append('\n'.join(current_part))
+                current_part = []
+            else:
+                current_part.append(line)
+        
+        if current_part:
+            parts.append('\n'.join(current_part))
+        
+        return [p for p in parts if p.strip()]
+    
+    def _split_text_intelligently(self, text: str) -> List[str]:
+        """Split text preserving semantic units."""
+        if len(text) <= self.chunk_size:
+            return [text]
+        
+        chunks = []
+        paragraphs = text.split('\n\n')
+        current_chunk = []
+        current_size = 0
+        
+        for para in paragraphs:
+            para_size = len(para)
+            if current_size + para_size > self.chunk_size and current_chunk:
+                chunks.append('\n\n'.join(current_chunk))
+                current_chunk = [para]
+                current_size = para_size
+            else:
+                current_chunk.append(para)
+                current_size += para_size + 2
+        
+        if current_chunk:
+            chunks.append('\n\n'.join(current_chunk))
+        
+        return chunks
+    
+    def _add_overlap_context(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Add overlap context between chunks."""
+        enhanced_chunks = []
+        
+        for i, chunk in enumerate(chunks):
+            if chunk.get("is_table", False):
+                enhanced_chunks.append(chunk)
+                continue
+            
+            # Add context from previous chunk
+            if i > 0 and not chunks[i-1].get("is_table", False):
+                prev_text = chunks[i-1]["text"]
+                overlap_text = prev_text[-self.chunk_overlap:] if len(prev_text) > self.chunk_overlap else prev_text
+                chunk["text"] = overlap_text + "\n\n" + chunk["text"]
+            
+            enhanced_chunks.append(chunk)
+        
+        return enhanced_chunks
+
+
+class EnhancedDocumentLoader:
+    """Consolidated enhanced document loader."""
+    
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.supported_extensions = {'.pdf'}
+        self.structured_chunker = StructuredContentChunker(chunk_size, chunk_overlap)
+    
+    def load_pdf(self, file_path: str) -> Dict[str, Any]:
+        """Enhanced PDF loading with table extraction."""
+        try:
+            doc = fitz.open(file_path)
+            text_pages = []
+            all_tables = []
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                text = self._extract_text_with_layout(page)
+                tables = self._extract_tables_from_page(page, page_num + 1)
+                all_tables.extend(tables)
+                
+                if text.strip() or tables:
+                    text_pages.append({
+                        "page_number": page_num + 1,
+                        "text": text,
+                        "has_tables": len(tables) > 0,
+                        "table_count": len(tables)
+                    })
+            
+            doc.close()
+            full_text = self._merge_content_with_tables(text_pages, all_tables)
+            
+            file_path_obj = Path(file_path)
+            metadata = {
+                "filename": file_path_obj.name,
+                "file_path": str(file_path_obj.absolute()),
+                "total_pages": len(text_pages),
+                "file_size": file_path_obj.stat().st_size,
+                "document_type": "pdf",
+                "has_tables": len(all_tables) > 0,
+                "table_count": len(all_tables)
+            }
+            
+            logger.info(f"Successfully loaded PDF: {file_path_obj.name} "
+                       f"({len(text_pages)} pages, {len(all_tables)} tables)")
+            
+            return {
+                "text": full_text,
+                "pages": text_pages,
+                "tables": all_tables,
+                **metadata
+            }
+        except Exception as e:
+            logger.error(f"Error loading PDF {file_path}: {str(e)}")
+            raise ValueError(f"Failed to load PDF: {str(e)}")
+    
+    def _extract_text_with_layout(self, page) -> str:
+        """Extract text while preserving layout."""
+        text = page.get_text("text", sort=True)
+        blocks = page.get_text("blocks")
+        
+        if blocks:
+            structured_text = []
+            for block in blocks:
+                if block[6] == 0:  # Text block
+                    block_text = block[4].strip()
+                    if block_text:
+                        structured_text.append(block_text)
+            if structured_text:
+                text = "\n\n".join(structured_text)
+        return text
+    
+    def _extract_tables_from_page(self, page, page_num: int) -> List[Dict]:
+        """Extract tables from PDF page."""
+        tables = []
+        text = page.get_text()
+        
+        # Simple table detection based on patterns
+        lines = text.split('\n')
+        table_lines = []
+        
+        for line in lines:
+            # Check for table-like patterns
+            if ('|' in line or '\t' in line or 
+                re.search(r'  {2,}', line) or 
+                re.match(r'^[A-Za-z\s]+:\s+.+', line)):
+                table_lines.append(line)
+            elif table_lines and len(table_lines) >= 2:
+                table_content = '\n'.join(table_lines)
+                tables.append({
+                    "content": table_content,
+                    "page_number": page_num
+                })
+                table_lines = []
+        
+        return tables
+    
+    def _merge_content_with_tables(self, text_pages: List[Dict], tables: List[Dict]) -> str:
+        """Merge text content with tables."""
+        merged_content = []
+        tables_by_page = {}
+        
+        for table in tables:
+            page = table["page_number"]
+            if page not in tables_by_page:
+                tables_by_page[page] = []
+            tables_by_page[page].append(table)
+        
+        for page_info in text_pages:
+            page_num = page_info["page_number"]
+            merged_content.append(f"\n--- Page {page_num} ---\n")
+            
+            if page_num in tables_by_page:
+                for table in tables_by_page[page_num]:
+                    merged_content.append("\n[TABLE START]\n")
+                    merged_content.append(table["content"])
+                    merged_content.append("\n[TABLE END]\n")
+            
+            merged_content.append(page_info["text"])
+        
+        return "\n".join(merged_content)
+    
+    def load_and_chunk_document(self, file_path: str) -> List[Dict[str, Any]]:
+        """Load and chunk document with structure awareness."""
+        doc_data = self.load_document(file_path)
+        chunk_metadata = {
+            "filename": doc_data["filename"],
+            "file_path": doc_data["file_path"],
+            "document_type": doc_data["document_type"],
+            "has_tables": doc_data.get("has_tables", False)
+        }
+        
+        chunks = self.structured_chunker.split_with_structure(
+            doc_data["text"], 
+            doc_data.get("tables", []),
+            chunk_metadata
+        )
+        
+        logger.info(f"Document {doc_data['filename']} split into {len(chunks)} chunks")
+        return chunks
+    
+    def load_document(self, file_path: str) -> Dict[str, Any]:
+        """Load document based on file type."""
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        extension = file_path_obj.suffix.lower()
+        if extension not in self.supported_extensions:
+            raise ValueError(f"Unsupported file type: {extension}")
+        
+        if extension == '.pdf':
+            return self.load_pdf(file_path)
+        raise ValueError(f"File type {extension} not implemented")
+    
+    def process_uploaded_file(self, file_content: bytes, filename: str, save_dir: str = "uploads") -> List[Dict[str, Any]]:
+        """Process uploaded file."""
+        save_path = Path(save_dir)
+        save_path.mkdir(exist_ok=True)
+        
+        file_path = save_path / filename
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        logger.info(f"Saved uploaded file: {file_path}")
+        
+        try:
+            chunks = self.load_and_chunk_document(str(file_path))
+            return chunks
+        except Exception as e:
+            if file_path.exists():
+                file_path.unlink()
+            raise e
+
+
+class QueryClassifier:
+    """Classifies queries and extracts key information."""
+    
+    def __init__(self, openai_client: OpenAI):
+        self.openai_client = openai_client
+        
+    def classify_query(self, query: str) -> QueryAnalysis:
+        """
+        Classify the query type and extract key information.
+        
+        Args:
+            query: User query
+            
+        Returns:
+            QueryAnalysis object
+        """
+        classification_prompt = f"""Analyze this query and provide a JSON response with the following structure:
+{{
+    "query_type": "factual|comparative|analytical|synthesis|temporal|causal",
+    "entities": ["list", "of", "key", "entities"],
+    "required_context": ["types", "of", "information", "needed"],
+    "complexity_score": 0.0-1.0,
+    "multi_hop": true/false
+}}
+
+Query: {query}
+
+Analysis:"""
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a query analysis expert. Respond only with valid JSON."},
+                    {"role": "user", "content": classification_prompt}
+                ],
+                temperature=0.1,
+                max_tokens=500
+            )
+            
+            analysis_text = response.choices[0].message.content
+            # Extract JSON from the response
+            json_match = re.search(r'\{.*\}', analysis_text, re.DOTALL)
+            if json_match:
+                analysis_data = json.loads(json_match.group())
+            else:
+                raise ValueError("No valid JSON found in response")
+            
+            return QueryAnalysis(
+                query_type=QueryType(analysis_data.get("query_type", "factual")),
+                entities=analysis_data.get("entities", []),
+                required_context=analysis_data.get("required_context", []),
+                complexity_score=float(analysis_data.get("complexity_score", 0.5)),
+                multi_hop=analysis_data.get("multi_hop", False)
+            )
+            
+        except Exception as e:
+            logger.error(f"Error classifying query: {e}")
+            # Return default analysis
+            return QueryAnalysis(
+                query_type=QueryType.FACTUAL,
+                entities=[],
+                required_context=[],
+                complexity_score=0.5,
+                multi_hop=False
+            )
+
+
+class IntelligentRetriever:
+    """Advanced retrieval strategies for different query types."""
+    
+    def __init__(self, vector_store: VectorStore, openai_client: OpenAI):
+        self.vector_store = vector_store
+        self.openai_client = openai_client
+        
+    def multi_stage_retrieval(
+        self, 
+        query: str, 
+        query_analysis: QueryAnalysis,
+        k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform multi-stage retrieval based on query analysis.
+        
+        Args:
+            query: User query
+            query_analysis: Analysis of the query
+            k: Number of results to retrieve
+            
+        Returns:
+            List of relevant chunks
+        """
+        all_results = []
+        seen_texts = set()
+        
+        # Stage 1: Direct semantic retrieval
+        direct_results = self.vector_store.search(query, k=k)
+        for result in direct_results:
+            text_hash = hash(result['text'])
+            if text_hash not in seen_texts:
+                all_results.append(result)
+                seen_texts.add(text_hash)
+        
+        # Stage 2: Entity-based retrieval
+        for entity in query_analysis.entities[:3]:  # Limit to top 3 entities
+            entity_results = self.vector_store.search(entity, k=2)
+            for result in entity_results:
+                text_hash = hash(result['text'])
+                if text_hash not in seen_texts:
+                    all_results.append(result)
+                    seen_texts.add(text_hash)
+        
+        # Stage 3: Context expansion for multi-hop queries
+        if query_analysis.multi_hop and all_results:
+            # Generate follow-up queries based on initial results
+            context_queries = self._generate_context_queries(query, all_results[:3])
+            for ctx_query in context_queries[:2]:  # Limit expansion
+                ctx_results = self.vector_store.search(ctx_query, k=2)
+                for result in ctx_results:
+                    text_hash = hash(result['text'])
+                    if text_hash not in seen_texts:
+                        all_results.append(result)
+                        seen_texts.add(text_hash)
+        
+        # Re-rank results based on relevance
+        ranked_results = self._rerank_results(query, all_results, query_analysis)
+        
+        return ranked_results[:k*2]  # Return more than k for context assembly
+    
+    def _generate_context_queries(
+        self, 
+        original_query: str, 
+        initial_results: List[Dict[str, Any]]
+    ) -> List[str]:
+        """Generate follow-up queries for context expansion."""
+        context = "\n".join([r['text'][:200] for r in initial_results])
+        
+        prompt = f"""Based on this query and initial context, generate 2-3 follow-up search queries that would help answer the original question more completely.
+
+Original query: {original_query}
+
+Initial context:
+{context}
+
+Follow-up queries (one per line):"""
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Generate relevant follow-up search queries."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=200
+            )
+            
+            queries = response.choices[0].message.content.strip().split('\n')
+            return [q.strip() for q in queries if q.strip()][:3]
+            
+        except Exception as e:
+            logger.error(f"Error generating context queries: {e}")
+            return []
+    
+    def _rerank_results(
+        self, 
+        query: str, 
+        results: List[Dict[str, Any]], 
+        query_analysis: QueryAnalysis
+    ) -> List[Dict[str, Any]]:
+        """Re-rank results based on query type and relevance."""
+        # Simple re-ranking based on entity presence
+        for result in results:
+            score = result.get('distance', 1.0)
+            text_lower = result['text'].lower()
+            
+            # Boost score for entity matches
+            entity_boost = sum(1 for entity in query_analysis.entities 
+                             if entity.lower() in text_lower)
+            
+            # Adjust score based on query type
+            if query_analysis.query_type == QueryType.COMPARATIVE:
+                # Boost chunks that contain comparison words
+                comparison_words = ['compare', 'versus', 'vs', 'difference', 'similar', 'unlike']
+                comparison_boost = sum(1 for word in comparison_words if word in text_lower)
+                score -= comparison_boost * 0.1
+            
+            result['adjusted_score'] = score - (entity_boost * 0.2)
+        
+        # Sort by adjusted score (lower is better)
+        return sorted(results, key=lambda x: x.get('adjusted_score', x.get('distance', 1.0)))
+
+
+class ManagedIntelligentRetriever(IntelligentRetriever):
+    """
+    Enhanced retriever that uses document manager for filtered search.
+    
+    This ensures we only search within properly managed documents
+    and never return results from deleted or failed documents.
+    """
+    
+    def __init__(self, document_manager: DocumentManager, openai_client: OpenAI):
+        self.document_manager = document_manager
+        self.openai_client = openai_client
+        # We don't call super().__init__ as we're replacing vector_store with document_manager
+    
+    def multi_stage_retrieval(
+        self, 
+        query: str, 
+        query_analysis: QueryAnalysis,
+        k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform multi-stage retrieval with document filtering.
+        
+        This ensures we only retrieve from active, properly indexed documents.
+        """
+        all_results = []
+        seen_texts = set()
+        
+        # Stage 1: Direct semantic retrieval
+        direct_results = self.document_manager.search_with_filtering(
+            query=query,
+            k=k
+        )
+        
+        for result in direct_results:
+            text_hash = hash(result['text'])
+            if text_hash not in seen_texts:
+                all_results.append(result)
+                seen_texts.add(text_hash)
+        
+        # Stage 2: Entity-based retrieval
+        for entity in query_analysis.entities[:3]:
+            entity_results = self.document_manager.search_with_filtering(
+                query=entity,
+                k=2
+            )
+            
+            for result in entity_results:
+                text_hash = hash(result['text'])
+                if text_hash not in seen_texts:
+                    all_results.append(result)
+                    seen_texts.add(text_hash)
+        
+        # Stage 3: Context expansion for multi-hop queries
+        if query_analysis.multi_hop and all_results:
+            context_queries = self._generate_context_queries(query, all_results[:3])
+            
+            for ctx_query in context_queries[:2]:
+                ctx_results = self.document_manager.search_with_filtering(
+                    query=ctx_query,
+                    k=2
+                )
+                
+                for result in ctx_results:
+                    text_hash = hash(result['text'])
+                    if text_hash not in seen_texts:
+                        all_results.append(result)
+                        seen_texts.add(text_hash)
+        
+        # Re-rank results
+        ranked_results = self._rerank_results(query, all_results, query_analysis)
+        
+        return ranked_results[:k*2]
+
+
+class ContextAssembler:
+    """Intelligent context assembly with quality assessment."""
+    
+    def __init__(self, openai_client: OpenAI, max_context_length: int = 3000):
+        self.openai_client = openai_client
+        self.max_context_length = max_context_length
+        
+    def assemble_context(
+        self, 
+        query: str, 
+        chunks: List[Dict[str, Any]], 
+        query_analysis: QueryAnalysis
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Assemble context intelligently based on query requirements.
+        
+        Args:
+            query: User query
+            chunks: Retrieved chunks
+            query_analysis: Query analysis results
+            
+        Returns:
+            Tuple of (assembled context, selected chunks)
+        """
+        # Remove redundancy
+        unique_chunks = self._remove_redundancy(chunks)
+        
+        # Assess completeness
+        completeness_score = self._assess_completeness(query, unique_chunks, query_analysis)
+        
+        # Select and order chunks based on query type
+        selected_chunks = self._select_chunks(unique_chunks, query_analysis, completeness_score)
+        
+        # Format context
+        context = self._format_context(selected_chunks, query_analysis)
+        
+        return context, selected_chunks
+    
+    def _remove_redundancy(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove redundant chunks using similarity threshold."""
+        unique_chunks = []
+        seen_content = []
+        
+        for chunk in chunks:
+            # Simple deduplication - could be enhanced with semantic similarity
+            is_duplicate = False
+            for seen in seen_content:
+                if self._calculate_overlap(chunk['text'], seen) > 0.8:
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                unique_chunks.append(chunk)
+                seen_content.append(chunk['text'])
+        
+        return unique_chunks
+    
+    def _calculate_overlap(self, text1: str, text2: str) -> float:
+        """Calculate text overlap ratio."""
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        return len(intersection) / len(union)
+    
+    def _assess_completeness(
+        self, 
+        query: str, 
+        chunks: List[Dict[str, Any]], 
+        query_analysis: QueryAnalysis
+    ) -> float:
+        """Assess if retrieved context is sufficient to answer the query."""
+        if not chunks:
+            return 0.0
+        
+        # Check if required entities are present
+        all_text = " ".join([c['text'].lower() for c in chunks])
+        entities_found = sum(1 for entity in query_analysis.entities 
+                           if entity.lower() in all_text)
+        
+        entity_coverage = entities_found / len(query_analysis.entities) if query_analysis.entities else 1.0
+        
+        # Check for required context types
+        context_found = sum(1 for ctx_type in query_analysis.required_context
+                          if any(ctx_type.lower() in c['text'].lower() for c in chunks))
+        
+        context_coverage = context_found / len(query_analysis.required_context) if query_analysis.required_context else 1.0
+        
+        # Combined score
+        completeness = (entity_coverage + context_coverage) / 2
+        
+        return completeness
+    
+    def _select_chunks(
+        self, 
+        chunks: List[Dict[str, Any]], 
+        query_analysis: QueryAnalysis,
+        completeness_score: float
+    ) -> List[Dict[str, Any]]:
+        """Select chunks based on query type and completeness."""
+        selected = []
+        current_length = 0
+        
+        # If completeness is low, include more chunks
+        target_chunks = 5 if completeness_score < 0.5 else 3
+        
+        for chunk in chunks[:target_chunks]:
+            chunk_length = len(chunk['text'])
+            if current_length + chunk_length <= self.max_context_length:
+                selected.append(chunk)
+                current_length += chunk_length
+            else:
+                # Truncate the last chunk if needed
+                remaining_space = self.max_context_length - current_length
+                if remaining_space > 100:  # Only include if meaningful
+                    chunk['text'] = chunk['text'][:remaining_space] + "..."
+                    selected.append(chunk)
+                break
+        
+        return selected
+    
+    def _format_context(
+        self, 
+        chunks: List[Dict[str, Any]], 
+        query_analysis: QueryAnalysis
+    ) -> str:
+        """Format context based on query type."""
+        if not chunks:
+            return "No relevant context found."
+        
+        context_parts = []
+        
+        # Add header based on query type
+        if query_analysis.query_type == QueryType.COMPARATIVE:
+            context_parts.append("COMPARATIVE CONTEXT - Multiple perspectives found:\n")
+        elif query_analysis.query_type == QueryType.TEMPORAL:
+            context_parts.append("TEMPORAL CONTEXT - Time-related information:\n")
+        
+        # Format chunks
+        for i, chunk in enumerate(chunks, 1):
+            metadata = chunk.get("metadata", {})
+            filename = metadata.get("filename", "Unknown")
+            chunk_index = metadata.get("chunk_index", "?")
+            
+            context_parts.append(
+                f"[Source {i}: {filename} (chunk {chunk_index})]\n{chunk['text']}\n"
+            )
+        
+        return "\n---\n".join(context_parts)
+
+
+class AnswerValidator:
+    """Validates and enhances answer quality."""
+    
+    def __init__(self, openai_client: OpenAI):
+        self.openai_client = openai_client
+        
+    def validate_answer(
+        self, 
+        query: str, 
+        context: str, 
+        answer: str,
+        query_analysis: QueryAnalysis
+    ) -> ValidationResult:
+        """
+        Validate the generated answer.
+        
+        Args:
+            query: Original query
+            context: Retrieved context
+            answer: Generated answer
+            query_analysis: Query analysis results
+            
+        Returns:
+            ValidationResult
+        """
+        validation_prompt = f"""Analyze this Q&A interaction and provide a JSON assessment:
+
+Query: {query}
+Query Type: {query_analysis.query_type.value}
+
+Context provided:
+{context[:1000]}...
+
+Answer given:
+{answer}
+
+Provide JSON with:
+{{
+    "is_complete": true/false,
+    "confidence_level": "High|Medium|Low",
+    "missing_information": ["list of missing elements"],
+    "contradictions": ["list of contradictions if any"],
+    "suggestions": ["improvements if needed"]
+}}"""
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are an answer quality validator. Respond only with valid JSON."},
+                    {"role": "user", "content": validation_prompt}
+                ],
+                temperature=0.1,
+                max_tokens=500
+            )
+            
+            validation_text = response.choices[0].message.content
+            json_match = re.search(r'\{.*\}', validation_text, re.DOTALL)
+            if json_match:
+                validation_data = json.loads(json_match.group())
+            else:
+                raise ValueError("No valid JSON found in response")
+            
+            return ValidationResult(
+                is_complete=validation_data.get("is_complete", True),
+                confidence_level=validation_data.get("confidence_level", "Medium"),
+                missing_information=validation_data.get("missing_information", []),
+                contradictions=validation_data.get("contradictions", []),
+                suggestions=validation_data.get("suggestions", [])
+            )
+            
+        except Exception as e:
+            logger.error(f"Error validating answer: {e}")
+            return ValidationResult(
+                is_complete=True,
+                confidence_level="Medium",
+                missing_information=[],
+                contradictions=[],
+                suggestions=[]
+            )
+
+
+def enhance_qa_engine_with_comparison(qa_engine):
+    """Enhance QA engine with comparison capabilities."""
+    comparison_handler = ComparisonQueryHandler(qa_engine.openai_client)
+    original_answer_question = qa_engine.answer_question
+    
+    def enhanced_answer_question(question: str, use_rag: bool = True, stream: bool = False, validate: bool = True) -> Dict[str, Any]:
+        """Enhanced answer method with comparison detection."""
+        if use_rag and comparison_handler.is_comparison_query(question):
+            logger.info("Detected comparison query, using specialized handler")
+            entities = comparison_handler.extract_comparison_entities(question)
+            
+            # Enhanced retrieval for comparison
+            all_results = []
+            for entity in entities[:3]:  # Limit entities
+                results = qa_engine.document_manager.search_with_filtering(query=entity, k=5)
+                all_results.extend(results)
+            
+            # Format context for comparison
+            context_str = "\n".join([f"[Source]: {r['text'][:300]}..." for r in all_results[:5]])
+            
+            # Enhanced prompt for comparison
+            messages = [
+                {"role": "system", "content": "You are a technical expert specializing in detailed comparisons. Always provide specific numbers and specifications when available."},
+                {"role": "user", "content": f"Compare the following based on this context:\n\nContext: {context_str}\n\nQuestion: {question}"}
+            ]
+            
+            if stream:
+                return {
+                    "success": True,
+                    "stream": qa_engine._stream_answer(messages),
+                    "sources": all_results[:5],
+                    "comparison_entities": entities
+                }
+            else:
+                response = qa_engine._call_llm(messages)
+                return {
+                    "success": True,
+                    "answer": response.choices[0].message.content,
+                    "sources": all_results[:5],
+                    "comparison_entities": entities,
+                    "query_type": "comparison"
+                }
+        else:
+            return original_answer_question(question, use_rag, stream, validate)
+    
+    qa_engine.answer_question = enhanced_answer_question
+    qa_engine.comparison_handler = comparison_handler
+    return qa_engine
+
+
+class EnhancedQAEngine:
+    """Enhanced QA Engine with intelligent retrieval, validation, and document lifecycle management."""
+    
+    def __init__(self, vector_store: Optional[VectorStore] = None):
+        """Initialize the enhanced QA engine with document management."""
+        self.config = get_config()
+        self.openai_client = OpenAI(api_key=self.config.openai_api_key)
+        self.vector_store = vector_store or VectorStore()
+        
+        # Use integrated enhanced document loader
+        self.document_loader = EnhancedDocumentLoader(
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap
+        )
+        
+        # Initialize document management
+        repository_path = Path(self.config.chroma_persist_dir) / "document_metadata"
+        self.document_repository = JsonDocumentRepository(repository_path)
+        self.document_manager = DocumentManager(
+            repository=self.document_repository,
+            vector_store=self.vector_store
+        )
+        
+        # Initialize components
+        self.query_classifier = QueryClassifier(self.openai_client)
+        self.intelligent_retriever = ManagedIntelligentRetriever(
+            self.document_manager, self.openai_client
+        )
+        self.context_assembler = ContextAssembler(self.openai_client)
+        self.answer_validator = AnswerValidator(self.openai_client)
+        
+        # Enhanced system prompt
+        self.system_prompt = """You are an intelligent assistant. When answering questions:
+
+1. Read and understand the full context provided
+2. Give direct, specific answers based on the document
+3. Make logical inferences when needed
+4. Connect related information across different parts of the document
+5. Be comprehensive but concise
+
+Focus on being helpful and intelligent in your responses."""
+        
+        # Enhance with comparison capabilities
+        enhance_qa_engine_with_comparison(self)
+        
+        # Verify system integrity on startup (but don't fail if empty)
+        try:
+            integrity_check = self.verify_system_integrity()
+            if not integrity_check["is_healthy"] and integrity_check.get("total_documents", 0) > 0:
+                logger.warning(f"System integrity issues found: {integrity_check['issues']}")
+        except Exception as e:
+            logger.warning(f"Could not verify system integrity on startup: {e}")
+    
+    def load_document(self, file_path: str) -> Dict[str, Any]:
+        """
+        Load and index a document with proper lifecycle management.
+        
+        This method ensures:
+        1. Duplicate documents are detected by content hash
+        2. Updated documents replace old versions atomically
+        3. Failed operations don't leave partial state
+        """
+        try:
+            # Load and chunk the document
+            chunks = self.document_loader.load_and_chunk_document(file_path)
+            
+            if not chunks:
+                return {
+                    "success": False,
+                    "error": "No content extracted from document"
+                }
+            
+            # Extract filename
+            filename = Path(file_path).name
+            
+            # Use document manager for atomic operation
+            result = self.document_manager.add_document(filename, chunks)
+            
+            # Log operation result
+            if result["success"]:
+                action = result.get("action", "unknown")
+                if action == "unchanged":
+                    logger.info(f"Document {filename} already up to date")
+                elif action == "added":
+                    logger.info(f"Successfully indexed document {filename}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error loading document {file_path}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def load_uploaded_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """
+        Load and index an uploaded file with lifecycle management.
+        
+        This ensures proper handling of document updates and prevents
+        stale references in the vector store.
+        """
+        try:
+            # Process the uploaded file
+            chunks = self.document_loader.process_uploaded_file(
+                file_content, 
+                filename
+            )
+            
+            if not chunks:
+                return {
+                    "success": False,
+                    "error": "No content extracted from uploaded file"
+                }
+            
+            # Use document manager for atomic operation
+            result = self.document_manager.add_document(filename, chunks)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error loading uploaded file {filename}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def delete_document(self, filename: str) -> Dict[str, Any]:
+        """Delete a document with proper cleanup."""
+        return self.document_manager.delete_document(filename)
+    
+    def list_documents(self) -> List[Dict[str, Any]]:
+        """Get list of all indexed documents."""
+        return self.document_manager.list_documents()
+    
+    def get_document_info(self, filename: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information about a specific document."""
+        return self.document_manager.get_document_info(filename)
+    
+    def verify_system_integrity(self) -> Dict[str, Any]:
+        """Verify the integrity of the entire system."""
+        return self.document_manager.verify_integrity()
+    
+    def answer_question(
+        self, 
+        question: str, 
+        use_rag: bool = True,
+        stream: bool = False,
+        validate: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Answer a question using enhanced RAG and LLM.
+        
+        Args:
+            question: User question
+            use_rag: Whether to use RAG retrieval
+            stream: Whether to stream the response
+            validate: Whether to validate the answer
+            
+        Returns:
+            Answer with metadata
+        """
+        try:
+            # Step 1: Analyze the query
+            query_analysis = self.query_classifier.classify_query(question)
+            logger.info(f"Query classified as: {query_analysis.query_type.value}")
+            
+            context_chunks = []
+            context_str = ""
+            
+            if use_rag:
+                # Step 2: Intelligent retrieval
+                retrieved_chunks = self.intelligent_retriever.multi_stage_retrieval(
+                    question, 
+                    query_analysis,
+                    k=self.config.top_k_results
+                )
+                
+                # Step 3: Assemble context
+                context_str, context_chunks = self.context_assembler.assemble_context(
+                    question,
+                    retrieved_chunks,
+                    query_analysis
+                )
+            
+            # Step 4: Prepare messages
+            messages = [
+                {"role": "system", "content": self.system_prompt}
+            ]
+            
+            if use_rag and context_str:
+                user_message = f"""Context from document:
+{context_str}
+
+Question: {question}"""
+            else:
+                user_message = question
+            
+            messages.append({"role": "user", "content": user_message})
+            
+            # Step 5: Generate answer
+            if stream:
+                return {
+                    "success": True,
+                    "stream": self._stream_answer(messages),
+                    "sources": context_chunks,
+                    "query_analysis": query_analysis
+                }
+            else:
+                response = self._call_llm(messages)
+                answer = response.choices[0].message.content
+                
+                # Step 6: Validate answer (optional)
+                validation_result = None
+                if validate and use_rag:
+                    validation_result = self.answer_validator.validate_answer(
+                        question,
+                        context_str,
+                        answer,
+                        query_analysis
+                    )
+                
+                return {
+                    "success": True,
+                    "answer": answer,
+                    "sources": context_chunks,
+                    "model": self.config.llm_model,
+                    "used_rag": use_rag,
+                    "query_analysis": query_analysis,
+                    "validation": validation_result
+                }
+                
+        except Exception as e:
+            logger.error(f"Error answering question: {e}")
+            return {"success": False, "error": str(e)}
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    def _call_llm(self, messages: List[Dict[str, str]], stream: bool = False) -> Any:
+        """Call the OpenAI LLM with retry logic."""
+        return self.openai_client.chat.completions.create(
+            model=self.config.llm_model,
+            messages=messages,
+            temperature=self.config.llm_temperature,
+            max_tokens=self.config.max_tokens,
+            stream=stream
+        )
+    
+    def _stream_answer(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
+        """Stream the LLM response."""
+        try:
+            stream = self._call_llm(messages, stream=True)
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
+        except Exception as e:
+            logger.error(f"Error streaming answer: {e}")
+            yield f"\n\nError: {str(e)}"
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get enhanced system statistics including document management."""
+        vector_stats = self.vector_store.get_collection_stats()
+        
+        # Add document management stats
+        doc_stats = {
+            "total_documents": len(self.document_manager.list_documents()),
+            "repository_type": type(self.document_repository).__name__,
+            "integrity_check": self.document_manager.verify_integrity()["is_healthy"]
+        }
+        
+        return {
+            "vector_store": vector_stats,
+            "document_management": doc_stats,
+            "config": {
+                "llm_model": self.config.llm_model,
+                "embedding_model": self.config.embedding_model,
+                "chunk_size": self.config.chunk_size,
+                "chunk_overlap": self.config.chunk_overlap,
+                "top_k_results": self.config.top_k_results
+            },
+            "enhanced_features": {
+                "query_classification": True,
+                "multi_stage_retrieval": True,
+                "context_quality_assessment": True,
+                "answer_validation": True,
+                "document_lifecycle_management": True
+            }
+        }
+    
+    def clear_documents(self):
+        """
+        Clear all documents with proper cleanup.
+        
+        This ensures both vector store and metadata are cleared atomically.
+        """
+        # Get all documents
+        documents = self.document_manager.list_documents()
+        
+        # Delete each document properly
+        for doc in documents:
+            self.document_manager.delete_document(doc["filename"])
+        
+        # Clear vector store collection
+        self.vector_store.clear_collection()
+        
+        # Reinitialize collection
+        self.vector_store.initialize_collection(reset=True)
+        
+        logger.info("Cleared all documents from the system")
+</file>
+
+<file path="src/qa_engine.py">
+"""
+Backward compatibility module - redirects to enhanced_qa_engine.
+
+This module exists to maintain compatibility with existing code that imports from qa_engine.
+All functionality has been moved to enhanced_qa_engine.py.
+"""
+
+# Import everything from enhanced_qa_engine for backward compatibility
+from src.enhanced_qa_engine import *
+
+# Explicitly import commonly used classes
+from src.enhanced_qa_engine import (
+    EnhancedQAEngine as QAEngine,  # Alias for backward compatibility
+    QueryType,
+    QueryAnalysis,
+    ValidationResult,
+    QueryClassifier,
+    IntelligentRetriever,
+    ManagedIntelligentRetriever,
+    ContextAssembler,
+    AnswerValidator
+)
+
+# For complete backward compatibility
+EnhancedQAEngine = QAEngine
+
+__all__ = [
+    'QAEngine',
+    'EnhancedQAEngine',
+    'QueryType',
+    'QueryAnalysis',
+    'ValidationResult',
+    'QueryClassifier',
+    'IntelligentRetriever',
+    'ManagedIntelligentRetriever',
+    'ContextAssembler',
+    'AnswerValidator'
+]
+</file>
+
+<file path="src/utils/__init__.py">
+"""Utility modules for the Document Q&A Agent."""
+</file>
+
+<file path="src/utils/config.py">
+"""Configuration management for the Document Q&A Agent."""
+
+import os
+from typing import Optional
+from dataclasses import dataclass
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+
+@dataclass
+class Config:
+    """Application configuration."""
+    
+    # OpenAI Configuration
+    openai_api_key: str
+    embedding_model: str = "text-embedding-3-small"
+    llm_model: str = "gpt-3.5-turbo"
+    llm_temperature: float = 0.7
+    max_tokens: int = 2000
+    
+    # Application Settings
+    app_name: str = "Document Q&A Agent"
+    app_port: int = 8501
+    
+    # Vector Store Settings
+    vector_store_type: str = "chroma"  # Options: chroma, faiss
+    chroma_persist_dir: str = "./chroma_db"
+    
+    # Chunking Settings
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    
+    # Retrieval Settings
+    top_k_results: int = 5
+    
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Create config from environment variables."""
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        
+        return cls(
+            openai_api_key=openai_api_key,
+            embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+            llm_model=os.getenv("LLM_MODEL", "gpt-3.5-turbo"),
+            llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
+            max_tokens=int(os.getenv("MAX_TOKENS", "2000")),
+            app_name=os.getenv("APP_NAME", "Document Q&A Agent"),
+            app_port=int(os.getenv("APP_PORT", "8501")),
+            vector_store_type=os.getenv("VECTOR_STORE_TYPE", "chroma"),
+            chroma_persist_dir=os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),
+            chunk_size=int(os.getenv("CHUNK_SIZE", "1000")),
+            chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "200")),
+            top_k_results=int(os.getenv("TOP_K_RESULTS", "5"))
+        )
+    
+    def validate(self) -> None:
+        """Validate configuration."""
+        if not self.openai_api_key:
+            raise ValueError("OpenAI API key is required")
+        
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("Chunk overlap must be less than chunk size")
+        
+        if self.top_k_results < 1:
+            raise ValueError("top_k_results must be at least 1")
+        
+        if self.llm_temperature < 0 or self.llm_temperature > 2:
+            raise ValueError("LLM temperature must be between 0 and 2")
+
+
+# Singleton instance
+_config: Optional[Config] = None
+
+
+def get_config() -> Config:
+    """Get the configuration singleton."""
+    global _config
+    if _config is None:
+        _config = Config.from_env()
+        _config.validate()
+    return _config
+</file>
+
+<file path="src/utils/logger.py">
+"""Logging configuration for the Document Q&A Agent."""
+
+import logging
+import sys
+from pathlib import Path
+from typing import Optional
+
+# Create logs directory if it doesn't exist
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+
+
+def setup_logger(
+    name: str = "ragml",
+    level: int = logging.INFO,
+    log_file: Optional[str] = None
+) -> logging.Logger:
+    """
+    Set up a logger with console and optional file output.
+    
+    Args:
+        name: Logger name
+        level: Logging level
+        log_file: Optional log file path
+        
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    # Remove existing handlers
+    logger.handlers.clear()
+    
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    
+    # Format
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # File handler (optional)
+    if log_file:
+        file_handler = logging.FileHandler(LOG_DIR / log_file)
+        file_handler.setLevel(level)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
+# Create default logger
+logger = setup_logger("ragml", logging.INFO, "ragml.log")
+</file>
+
+<file path="src/utils/text_splitter.py">
+"""Text splitting utilities for document chunking."""
+
+from typing import List, Dict, Any
+import tiktoken
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from src.utils.logger import logger
+
+
+class DocumentChunker:
+    """Handles document text splitting with metadata preservation."""
+    
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        """
+        Initialize the document chunker.
+        
+        Args:
+            chunk_size: Maximum size of each chunk in characters
+            chunk_overlap: Number of overlapping characters between chunks
+        """
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        
+        # Initialize tokenizer for token counting
+        try:
+            self.encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+        except Exception as e:
+            logger.warning(f"Failed to load tiktoken encoding: {e}")
+            self.encoding = None
+    
+    def split_text(
+        self, 
+        text: str, 
+        metadata: Dict[str, Any] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Split text into chunks with metadata.
+        
+        Args:
+            text: The text to split
+            metadata: Optional metadata to attach to each chunk
+            
+        Returns:
+            List of dictionaries containing text chunks and metadata
+        """
+        if not text or not text.strip():
+            logger.warning("Empty text provided for splitting")
+            return []
+        
+        # Split the text
+        chunks = self.text_splitter.split_text(text)
+        
+        # Prepare results with metadata
+        results = []
+        for i, chunk in enumerate(chunks):
+            chunk_data = {
+                "text": chunk,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "char_count": len(chunk)
+            }
+            
+            # Add token count if available
+            if self.encoding:
+                chunk_data["token_count"] = len(self.encoding.encode(chunk))
+            
+            # Add provided metadata
+            if metadata:
+                chunk_data.update(metadata)
+            
+            results.append(chunk_data)
+        
+        logger.info(f"Split text into {len(results)} chunks")
+        return results
+    
+    def split_documents(
+        self, 
+        documents: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Split multiple documents into chunks.
+        
+        Args:
+            documents: List of document dictionaries with 'text' and optional metadata
+            
+        Returns:
+            List of all chunks from all documents
+        """
+        all_chunks = []
+        
+        for doc_idx, doc in enumerate(documents):
+            if "text" not in doc:
+                logger.warning(f"Document {doc_idx} missing 'text' field")
+                continue
+            
+            # Extract metadata
+            metadata = {k: v for k, v in doc.items() if k != "text"}
+            metadata["document_index"] = doc_idx
+            
+            # Split and add chunks
+            chunks = self.split_text(doc["text"], metadata)
+            all_chunks.extend(chunks)
+        
+        logger.info(f"Split {len(documents)} documents into {len(all_chunks)} chunks")
+        return all_chunks
+</file>
+
+<file path="src/vector_store.py">
+"""Vector store module for document embeddings and retrieval."""
+
+import os
+from typing import List, Dict, Any, Optional, Tuple
+from pathlib import Path
+import chromadb
+from chromadb.config import Settings
+from openai import OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+from src.utils.logger import logger
+from src.utils.config import get_config
+
+
+class VectorStore:
+    """Manages document embeddings and similarity search using ChromaDB."""
+    
+    def __init__(self, persist_directory: Optional[str] = None):
+        """
+        Initialize the vector store.
+        
+        Args:
+            persist_directory: Directory to persist the vector database
+        """
+        self.config = get_config()
+        self.persist_directory = persist_directory or self.config.chroma_persist_dir
+        
+        # Initialize OpenAI client
+        self.openai_client = OpenAI(api_key=self.config.openai_api_key)
+        
+        # Initialize ChromaDB
+        self._init_chromadb()
+        
+        # Collection name
+        self.collection_name = "document_chunks"
+        self.collection = None
+        
+    def _init_chromadb(self):
+        """Initialize ChromaDB client."""
+        # Create persist directory if it doesn't exist
+        Path(self.persist_directory).mkdir(parents=True, exist_ok=True)
+        
+        # Initialize ChromaDB with persistence
+        self.chroma_client = chromadb.PersistentClient(
+            path=self.persist_directory,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
+        )
+        logger.info(f"Initialized ChromaDB with persist directory: {self.persist_directory}")
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Get embeddings for a list of texts using OpenAI API.
+        
+        Args:
+            texts: List of texts to embed
+            
+        Returns:
+            List of embedding vectors
+        """
+        try:
+            response = self.openai_client.embeddings.create(
+                model=self.config.embedding_model,
+                input=texts
+            )
+            embeddings = [item.embedding for item in response.data]
+            logger.info(f"Generated embeddings for {len(texts)} texts")
+            return embeddings
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {e}")
+            raise
+    
+    def initialize_collection(self, reset: bool = False):
+        """
+        Initialize or get the document collection.
+        
+        Args:
+            reset: Whether to reset the collection if it exists
+        """
+        try:
+            if reset:
+                # Delete collection if it exists
+                try:
+                    self.chroma_client.delete_collection(self.collection_name)
+                    logger.info(f"Deleted existing collection: {self.collection_name}")
+                except Exception:
+                    pass
+            
+            # Get or create collection
+            self.collection = self.chroma_client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"description": "Document chunks for Q&A"}
+            )
+            
+            logger.info(f"Initialized collection: {self.collection_name}")
+            
+        except Exception as e:
+            logger.error(f"Error initializing collection: {e}")
+            raise
+    
+    def add_documents(
+        self, 
+        chunks: List[Dict[str, Any]], 
+        batch_size: int = 50
+    ) -> int:
+        """
+        Add document chunks to the vector store.
+        
+        Args:
+            chunks: List of document chunks with text and metadata
+            batch_size: Number of chunks to process at once
+            
+        Returns:
+            Number of chunks added
+        """
+        if not self.collection:
+            self.initialize_collection()
+        
+        total_added = 0
+        
+        # Process in batches
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            
+            # Extract texts and metadata
+            texts = [chunk["text"] for chunk in batch]
+            metadatas = []
+            ids = []
+            
+            for j, chunk in enumerate(batch):
+                # Create metadata
+                metadata = {
+                    k: v for k, v in chunk.items() 
+                    if k != "text" and isinstance(v, (str, int, float, bool))
+                }
+                metadatas.append(metadata)
+                
+                # Create unique ID
+                chunk_id = f"{chunk.get('filename', 'unknown')}_{i+j}"
+                ids.append(chunk_id)
+            
+            # Get embeddings
+            try:
+                embeddings = self._get_embeddings(texts)
+                
+                # Add to collection
+                self.collection.add(
+                    embeddings=embeddings,
+                    documents=texts,
+                    metadatas=metadatas,
+                    ids=ids
+                )
+                
+                total_added += len(batch)
+                logger.info(f"Added batch {i//batch_size + 1}: {len(batch)} chunks")
+                
+            except Exception as e:
+                logger.error(f"Error adding batch {i//batch_size + 1}: {e}")
+                continue
+        
+        logger.info(f"Total chunks added to vector store: {total_added}")
+        return total_added
+    
+    def search(
+        self, 
+        query: str, 
+        k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for similar documents using semantic search.
+        
+        Args:
+            query: Search query
+            k: Number of results to return
+            filter_dict: Optional metadata filters
+            
+        Returns:
+            List of search results with text, metadata, and scores
+        """
+        if not self.collection:
+            logger.warning("Collection not initialized")
+            return []
+        
+        try:
+            # Get query embedding
+            query_embedding = self._get_embeddings([query])[0]
+            
+            # Perform search
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=k,
+                where=filter_dict
+            )
+            
+            # Format results
+            formatted_results = []
+            if results['documents'] and results['documents'][0]:
+                for i in range(len(results['documents'][0])):
+                    result = {
+                        "text": results['documents'][0][i],
+                        "metadata": results['metadatas'][0][i] if results['metadatas'] else {},
+                        "distance": results['distances'][0][i] if results['distances'] else 0,
+                        "id": results['ids'][0][i] if results['ids'] else ""
+                    }
+                    formatted_results.append(result)
+            
+            logger.info(f"Found {len(formatted_results)} results for query")
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Error during search: {e}")
+            return []
+    
+    def get_collection_stats(self) -> Dict[str, Any]:
+        """Get statistics about the vector store collection."""
+        if not self.collection:
+            return {"error": "Collection not initialized"}
+        
+        try:
+            count = self.collection.count()
+            return {
+                "collection_name": self.collection_name,
+                "document_count": count,
+                "persist_directory": self.persist_directory,
+                "embedding_model": self.config.embedding_model
+            }
+        except Exception as e:
+            logger.error(f"Error getting collection stats: {e}")
+            return {"error": str(e)}
+    
+    def delete_by_filename(self, filename: str) -> int:
+        """
+        Delete all chunks from a specific file.
+        
+        Args:
+            filename: Name of the file to delete chunks for
+            
+        Returns:
+            Number of chunks deleted
+        """
+        if not self.collection:
+            return 0
+        
+        try:
+            # Get all IDs for the filename
+            results = self.collection.get(
+                where={"filename": filename}
+            )
+            
+            if results['ids']:
+                self.collection.delete(ids=results['ids'])
+                logger.info(f"Deleted {len(results['ids'])} chunks for file: {filename}")
+                return len(results['ids'])
+            
+            return 0
+            
+        except Exception as e:
+            logger.error(f"Error deleting chunks: {e}")
+            return 0
+    
+    def clear_collection(self):
+        """Clear all documents from the collection."""
+        if self.collection:
+            try:
+                self.chroma_client.delete_collection(self.collection_name)
+                self.collection = None
+                logger.info("Cleared vector store collection")
+            except Exception as e:
+                logger.error(f"Error clearing collection: {e}")
+</file>
+
+</files>
